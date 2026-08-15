@@ -1,5 +1,50 @@
 # Stanford Football Player Tool — project notes
 
+> **📋 THE PROCESS — read this before changing anything.**
+>
+> **Run `npm run check` before you commit.** One gate, `scripts/check.py`. It exists because
+> this project's failures are not "a function returned the wrong value" — they are rotting
+> notes, claims nobody verified, and a model whose numbers are wrong in ways nothing detects
+> while the tool prints dollar figures somebody makes offers from.
+>
+> **Five statuses. The middle three are the whole point:**
+> - `PASS` / `FAIL` — normal. FAIL exits 1.
+> - `KNOWN-BAD` — a documented distortion is still present **and matches
+>   `scripts/baseline.json`**. Exits 0. **This is not a pass**; it means "still broken, as
+>   recorded." It exits 0 only so nobody appends `|| true` to a permanently-red gate.
+> - `CHANGED` — reality diverged from the ledger **in either direction**. Exits 1. **A fix
+>   trips this exactly like a regression does**, on purpose: today, fixing fix-order item 1 or
+>   2 has nothing that would confirm it worked.
+> - `CANNOT-SEE` — an input was missing, so the check did not run. Exits 0 and is **never**
+>   reported as a pass. It always names what would make it see.
+>
+> **`scripts/baseline.json` is a characterization ledger, not a wishlist.** Several entries
+> pin values we know are *wrong*. Updating one is the act of claiming a fix — do it
+> deliberately, and record the why in `DECISIONS.md`.
+>
+> **What the gate cannot see** (stated so a green run isn't over-read): it does not run
+> `app.py` or instantiate the KNN model, so the ROI/EV formula bugs are invisible to it, and it
+> cannot verify a relabeling preserved the model's ordering. The secret scan matches the
+> *shape* of a key, not a key it has never seen. Full list in the script's docstring.
+>
+> **This file is rules + current state. Dated findings go in [`DECISIONS.md`](DECISIONS.md).**
+> A measurement appended here is a tax on every future session, since this file loads every
+> time. Promote only the durable one-liner back up here, with a pointer down.
+>
+> **Two claim rules, both earned here:**
+> - **An absence claim needs a command behind it.** *"Not built anywhere," "nothing reads it,"
+>   "already committed"* are cheap to check and expensive to assert wrongly, because a stated
+>   absence closes the question for every later reader. The *"key is already effectively
+>   committed"* note was false and nearly licensed a real leak — there was no repo.
+>   A private repo also reads as *nonexistent* to a query lacking access.
+> - **Mark what you verified vs. what you were told.** Uniform confidence is what makes one
+>   wrong claim load-bearing.
+>
+> **Deliberately NOT here:** summer-build's orchestrator coordination tooling (board,
+> seam-drift). Wrong fit — one `app.py` plus a five-file ingest, ~1–2 concurrent sessions, and
+> its seam list matches nothing here so its drift check would report green forever. Reasoning
+> in `ORCHESTRATOR-SETUP-HANDOFF.md`; decision in `DECISIONS.md` (2026-08-15).
+
 ## What this is
 Phase 1/2 PoC per `Player Tool v1 PDR.pdf`: given a recruit profile (stars, rating,
 ranking, height, weight, position, school), find historical comps via KNN and show

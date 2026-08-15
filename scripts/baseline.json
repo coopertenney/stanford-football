@@ -1,0 +1,144 @@
+{
+  "_README": [
+    "Measured facts about the dataset, with a STATUS saying whether each is desired.",
+    "",
+    "This is a characterization ledger, not a wishlist. Several entries record values we",
+    "know are WRONG (status 'known_bad'). That is deliberate: the tool has documented",
+    "distortions, and pinning their current values turns 'we know it's broken' into a",
+    "tripwire. scripts/check.py goes RED when reality diverges from a recorded value in",
+    "EITHER direction — a fix and a regression both need a human to look.",
+    "",
+    "When you fix something: run `python3 scripts/check.py`, read the CHANGED block, and",
+    "if the new number is the intended one, update `value` here and flip `status` to",
+    "'good'. Updating this file is the act of claiming a fix — do not do it casually, and",
+    "record the why in DECISIONS.md.",
+    "",
+    "measured_on dates are when the value was last confirmed, not when it was written."
+  ],
+
+  "dataset": {
+    "rows": {
+      "value": 7914,
+      "tolerance": 0,
+      "status": "good",
+      "measured_on": "2026-08-15",
+      "what": "rows in yearly_player_outcomes.csv (WR+TE+RB player-seasons)",
+      "why_pinned": "a silent change here means the pipeline or a concat changed shape"
+    },
+    "distinct_players": {
+      "value": 2913,
+      "tolerance": 0,
+      "status": "good",
+      "measured_on": "2026-08-15",
+      "what": "distinct name_clean in yearly_player_outcomes.csv"
+    },
+    "positions": {
+      "value": { "WR": 3740, "RB": 2844, "TE": 1330 },
+      "status": "good",
+      "measured_on": "2026-08-15",
+      "what": "rows per position_clean",
+      "note": "3 of the PDR's 9 position groups. Missing QB/OL/DL/LB/DB/ST."
+    },
+    "recruit_years": {
+      "value": [2018, 2019, 2020, 2021, 2022, 2023, 2024],
+      "status": "known_bad",
+      "measured_on": "2026-08-15",
+      "what": "recruiting classes present",
+      "why_bad": "PDR §3.1.4 asks for 10 classes (2015-2024); we have 7.",
+      "fix_order_item": null
+    }
+  },
+
+  "distortions": {
+    "outcome_labels_are_percentile_buckets": {
+      "value": {
+        "Bust": 24.96,
+        "Depth / Rotation": 34.98,
+        "Starter": 25.02,
+        "Impact Player": 15.05
+      },
+      "tolerance_pp": 0.5,
+      "cut_points": [0.25, 0.6, 0.85],
+      "status": "known_bad",
+      "measured_on": "2026-08-15",
+      "what": "outcome share (%) across the whole dataset",
+      "why_bad": [
+        "These ARE the cut points (0.25/0.60/0.85 -> 25/35/25/15). The distribution is a",
+        "definitional artifact of percentile bucketing, not an empirical finding.",
+        "PDR §3.1.1 wants absolute standards: Starter = holds a starting role a full",
+        "season; Impact = All-Conference or draft pick.",
+        "Side effect: labels are position-RELATIVE, so a 'Starter' RB and a 'Starter' WR",
+        "are not the same thing — and that feeds straight into the dollar mapping."
+      ],
+      "fix_order_item": 1,
+      "what_fixed_looks_like": "shares diverge from the cut points and vary across years"
+    },
+
+    "outcome_shares_uniform_across_years": {
+      "value_max_spread_pp": 0.4,
+      "tolerance_pp": 0.3,
+      "status": "known_bad",
+      "measured_on": "2026-08-15",
+      "what": "largest spread, in percentage points, of any outcome's share across eligibility years 1-5",
+      "why_bad": [
+        "A real career-outcome distribution changes with eligibility year — year-1 true",
+        "freshmen should bust far more often than year-4 players. A spread near zero is",
+        "proof the labels carry no year signal, because the percentile cut is applied",
+        "within every year independently."
+      ],
+      "fix_order_item": 1,
+      "what_fixed_looks_like": "spread grows well past 1pp; year 1 skews Bust"
+    },
+
+    "survivorship_non_participants_missing": {
+      "value": {
+        "recruits_pulled_wr_rb_te": 6910,
+        "players_in_outcomes": 2913,
+        "coverage_pct": 42.2,
+        "missing_pct": 57.8
+      },
+      "tolerance_pp": 1.0,
+      "status": "known_bad",
+      "measured_on": "2026-08-15",
+      "what": "share of pulled WR/RB/TE recruits that appear in the outcomes table",
+      "why_bad": [
+        "The pipeline starts from the STATS endpoint and left-joins recruits onto it, so a",
+        "recruit who never recorded a carry or catch never enters the table. The ~58%",
+        "missing are the real busts. So 'Bust' currently means 'bottom quartile of players",
+        "who already made the field.'",
+        "Fix: invert the merge — start from the recruit list, left-join stats, treat",
+        "no-stat seasons as Bust."
+      ],
+      "fix_order_item": 2,
+      "what_fixed_looks_like": "coverage approaches 100% and the Bust share rises sharply",
+      "needs": "cfbd_data/recruits_*.csv (gitignored — regenerate with gather_rb_data.py)"
+    },
+
+    "no_power4_scoping": {
+      "value": { "distinct_teams": 270, "p4_p5_share_pct": 48.6, "stanford_rows": 67 },
+      "tolerance_pp": 1.0,
+      "status": "known_bad",
+      "measured_on": "2026-08-15",
+      "what": "conference breadth of the comparable pool",
+      "why_bad": [
+        "PDR §3.1.4 says scope to ACC / Power 4 where possible. Sun Belt, MAC etc. sit in",
+        "the same percentile pool and distort the ranks."
+      ],
+      "fix_order_item": null,
+      "what_fixed_looks_like": "p4_p5_share_pct near 100, distinct_teams far below 270"
+    }
+  },
+
+  "model_signal": {
+    "knn_ordering": {
+      "value": { "wr_5star_elite_impact_pct": 47.0, "wr_2star_impact_pct": 17.1, "rb_3star_impact_pct": 11.1 },
+      "status": "known_bad",
+      "measured_on": "2026-08-12",
+      "what": "P(Impact) for three reference profiles",
+      "why_bad": "ordering and spread are sensible; the LEVELS are not (a 2-star at 17% Impact is not credible)",
+      "note": "relabeling under fix items 1-2 should PRESERVE the ordering. If it inverts, the fix broke the model.",
+      "checked_by_script": false,
+      "why_not": "requires instantiating app.py's KNN model; not wired up yet. Measured by hand 2026-08-12."
+    }
+  }
+}
