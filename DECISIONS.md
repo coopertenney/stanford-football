@@ -46,13 +46,35 @@ check it against `git log` before believing it.
 **Decided:** `gh`'s active account is `coopertenney` (Cooper's call — the prior `ctenney05`
 default was itself the accident).
 
-**Decided:** do **not** port summer-build's orchestrator coordination tooling here. Reached
-independently by two sessions. Reasoning: that framework's value is seam-drift detection across
-packages several people maintain, plus a board so 5–7 concurrent lanes can see each other.
-Here there is one ~677-line `app.py` and a five-file ingest, the parallelism ceiling is 1–2
-sessions, and its hardcoded `SEAM_PATHS` list matches nothing in this repo — so ported
-unchanged its drift check would report green forever, which is worse than no check. Full
-reasoning and the two mechanical gotchas kept at `ORCHESTRATOR-SETUP-HANDOFF.md`.
+🔴 **CORRECTED 2026-08-15 (same day, by Cooper): the paragraph below originally opened
+"**Decided:** do not port summer-build's orchestrator coordination tooling here." That was
+NOT a decision — it was a recommendation from two assistant sessions, and Cooper had made no
+ruling either way.** Worse, `ORCHESTRATOR-SETUP-HANDOFF.md` §5 said so explicitly — *"Cooper
+never confirmed a decision either way. Do not read this document as approval to proceed"* —
+and it was written up here as settled anyway, one file over.
+
+**Standing rule, and it is the reason this correction is kept rather than edited away: a
+recommendation recorded as a decision is worse than an unrecorded one.** An open question at
+least stays open; a false "Decided:" closes it for every later reader and for every future
+session that loads this file. **Only the human decides. Label your own reasoning as a
+recommendation, every time.** Same family as the *"already committed"* claim above — an
+assertion nobody checked, which then licensed the thing it described.
+
+⚠️ **A second error in the same entry: it answered a narrower question than was asked.** The
+recommendation was against porting **`session-brief.py`'s board and seam-drift tooling**. It
+was filed as though it settled whether to have an **orchestrator agent at all** — a different
+and much more portable thing, since the agent is the planning/dispatch/verification role and
+the board is only one instrument it uses. **Cooper's actual ask was the agent.** Built
+2026-08-15; see the next entry.
+
+**RECOMMENDATION (not a decision), preserved as written, for whatever it is worth:** the
+summer-build framework's value is seam-drift detection across packages several people maintain,
+plus a board so 5–7 concurrent lanes can see each other. Here there is one ~677-line `app.py`
+and a five-file ingest, the parallelism ceiling is 1–2 sessions, and its hardcoded `SEAM_PATHS`
+list matches nothing in this repo — so ported unchanged its drift check would report green
+forever, which is worse than no check. Full reasoning and the two mechanical gotchas kept at
+`ORCHESTRATOR-SETUP-HANDOFF.md`. **That argument is about the tooling and does not bear on
+whether an orchestrator agent is worth having.**
 
 **Built instead: `scripts/check.py` + `scripts/baseline.json`.** A characterization gate suited
 to this project's actual failure modes (rotting notes, unchecked claims, silently wrong model

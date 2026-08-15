@@ -35,3 +35,6 @@ data/
 
 # macOS
 .DS_Store
+
+# orchestrator board — live coordination state, not source
+.coord/
