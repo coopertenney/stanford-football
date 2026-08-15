@@ -1,0 +1,20 @@
+{
+  "WR": {
+    "Bust": 0,
+    "Depth / Rotation": 100000,
+    "Starter": 400000,
+    "Impact Player": 1200000
+  },
+  "TE": {
+    "Bust": 0,
+    "Depth / Rotation": 80000,
+    "Starter": 300000,
+    "Impact Player": 900000
+  },
+  "RB": {
+    "Bust": 0,
+    "Depth / Rotation": 90000,
+    "Starter": 350000,
+    "Impact Player": 1000000
+  }
+}

@@ -1,0 +1,37 @@
+node_modules/
+dist/
+.env
+
+# legacy python PoC — kept for reference, not part of the TS build
+.venv/
+__pycache__/
+
+# ---------------------------------------------------------------------------
+# Generated / re-fetchable data. Rule: if a script can rebuild it, don't track
+# it. Everything below is reproducible from the CFBD API (needs CFBD_API_KEY)
+# or from the ingest pipeline.
+#
+# NOTE: gitignore has NO trailing-comment syntax — `foo/  # why` is parsed as a
+# pattern containing spaces and a `#`, matching nothing. Comments go on their
+# own line. (This bit once: it staged 822 files and 329M of cache.)
+# ---------------------------------------------------------------------------
+
+# raw HTTP response cache, 329M
+cfbd_cache/
+
+# per-year/category API dumps, gather_rb_data.py rebuilds, 12M
+cfbd_data/
+
+# TS ingest output, `npm run ingest` rebuilds, 80M
+data/
+
+# ---------------------------------------------------------------------------
+# TRACKED ON PURPOSE, listed here so nobody "cleans them up":
+#   yearly_wr_te_outcomes.csv   } model inputs. Regenerable but slow, and
+#   yearly_rb_outcomes.csv      } app.py needs them for a clean-clone run
+#   yearly_player_outcomes.csv  } (PDR §4.1). 6.2M total.
+#   Player Data/                hand-supplied source CSVs, NOT script-regenerable
+# ---------------------------------------------------------------------------
+
+# macOS
+.DS_Store
