@@ -452,6 +452,34 @@ export const UNIT: Record<PositionGroup, 'offense' | 'defense' | 'special'> = {
  * few dozen snaps. Defensive positions were unaffected only because they define
  * their own maximum, which masked the bug for half the roster.
  */
+/**
+ * Plausible band for defensive plays as a multiple of offensive plays, and the
+ * central value used when no defensive observation exists.
+ *
+ * Measured across 1,435 team-seasons: median 0.936, p05 0.777, p95 1.115, max 1.778.
+ * The offensive estimate is trustworthy — offensive linemen are on the field for
+ * nearly every offensive play and are never two-way — so it anchors the defensive
+ * one, which is not trustworthy for two reasons pulling opposite ways:
+ *
+ *   TWO-WAY PLAYERS inflate it. Colorado 2024's defensive maximum is 1,529, which is
+ *   Travis Hunter's combined offence+defence total, against roughly 860 real
+ *   defensive plays. Every Colorado defender's snap share was therefore deflated ~44%
+ *   and NOT ONE was labeled Starter — an 877-snap full-time cornerback read
+ *   "Depth / Rotation". 45 team-seasons exceed 1.15.
+ *
+ *   HEAVY ROTATION deflates it. Where no defender exceeds ~600 snaps the denominator
+ *   is far too small and every share is inflated, over-labeling Starters on exactly
+ *   the teams that rotate most. 116 team-seasons fall below 0.80.
+ *
+ * Clamping to the empirical p05-p95 band keeps genuine team-to-team variation while
+ * removing both failure modes. A percentile of unit snaps would be better still, and
+ * real per-unit totals are derivable from the game-grade feed — but only one week of
+ * that is exported.
+ */
+const DEF_OFF_RATIO_MIN = 0.78;
+const DEF_OFF_RATIO_MAX = 1.12;
+const DEF_OFF_RATIO_TYPICAL = 0.936;
+
 export function estimateTeamPlays(
   rows: readonly {
     season: number;
@@ -475,6 +503,17 @@ export function estimateTeamPlays(
       entry.defense = Math.max(entry.defense, row.snaps);
     }
     out.set(key, entry);
+  }
+
+  // Anchor and clamp the defensive estimate against the reliable offensive one.
+  for (const entry of out.values()) {
+    if (entry.offense <= 0) continue;
+    const floor = entry.offense * DEF_OFF_RATIO_MIN;
+    const ceiling = entry.offense * DEF_OFF_RATIO_MAX;
+    entry.defense =
+      entry.defense > 0
+        ? Math.min(ceiling, Math.max(floor, entry.defense))
+        : entry.offense * DEF_OFF_RATIO_TYPICAL;
   }
   return out;
 }
