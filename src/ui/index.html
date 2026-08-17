@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Player Valuation</title>
+<style>
+:root{--surface:#fcfcfb;--plane:#f9f9f7;--ink:#0b0b0b;--ink2:#52514e;--muted:#898781;
+--grid:#e1e0d9;--axis:#c3c2b7;--accent:#8C1515}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--surface:#1a1a19;
+--plane:#0d0d0d;--ink:#fff;--ink2:#c3c2b7;--muted:#898781;--grid:#2c2c2a;--axis:#383835;--accent:#E0685F}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--plane);color:var(--ink);font:15px/1.55 system-ui,-apple-system,sans-serif}
+.wrap{max-width:1200px;margin:0 auto;padding:28px 20px 80px}
+h1{font:600 25px/1.2 system-ui;margin:0 0 4px}
+.sub{color:var(--ink2);margin:0 0 22px;max-width:70ch}
+.warn{border-left:3px solid var(--accent);background:var(--surface);padding:12px 16px;margin:0 0 22px;font-size:13.5px;color:var(--ink2)}
+fieldset{border:1px solid var(--grid);background:var(--surface);padding:14px 16px;margin:0 0 16px}
+legend{font:600 12px system-ui;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:0 6px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px}
+label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--ink2)}
+input,select{font:14px system-ui;padding:6px 8px;border:1px solid var(--axis);background:var(--surface);color:var(--ink);border-radius:3px}
+input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.panes{display:grid;gap:20px}
+.pane{background:var(--surface);border:1px solid var(--grid);padding:18px}
+h2{font:600 15px system-ui;margin:0 0 12px;letter-spacing:.02em}
+h3{font:600 13px system-ui;margin:22px 0 4px;letter-spacing:.03em;text-transform:uppercase;color:var(--muted)}
+.cap{font-size:12.5px;color:var(--muted);margin:0 0 10px;max-width:75ch}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--grid);border:1px solid var(--grid)}
+.metric{background:var(--surface);padding:10px 12px;display:flex;flex-direction:column;gap:2px}
+.metric b{font:600 19px ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums}
+.ml{font-size:11px;color:var(--muted);letter-spacing:.03em}
+.mn{font-size:10.5px;color:var(--muted)}
+.chart{margin:6px 0 4px}
+.chart svg{width:100%;height:auto;display:block}
+.tick{font:10px ui-monospace,Menlo,monospace;fill:var(--muted)}
+.tick.dim{fill:var(--axis)}
+.scroller{overflow-x:auto;border:1px solid var(--grid);margin-top:8px}
+table{border-collapse:collapse;width:100%;font-size:13px;min-width:520px}
+th{text-align:left;font:600 10.5px ui-monospace,Menlo,monospace;letter-spacing:.08em;text-transform:uppercase;
+color:var(--muted);padding:8px 10px;border-bottom:1px solid var(--axis);background:var(--plane);white-space:nowrap}
+td{padding:7px 10px;border-bottom:1px solid var(--grid)}
+tr:last-child td{border-bottom:none}
+.num{text-align:right;font-variant-numeric:tabular-nums;font-family:ui-monospace,Menlo,monospace}
+.dim{color:var(--muted)}
+.sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:7px;vertical-align:-1px}
+.pip{display:inline-block;width:13px;height:13px;border-radius:2px;margin-right:3px;vertical-align:-2px}
+.row{display:flex;gap:18px;align-items:end;flex-wrap:wrap}
+.chk{flex-direction:row;align-items:center;gap:7px;font-size:13px}
+footer{margin-top:34px;padding-top:16px;border-top:1px solid var(--grid);font-size:12.5px;color:var(--muted)}
+@media(min-width:1000px){.panes.two{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Player Valuation</h1>
+<p class="sub">Enter a recruit profile to see the year-by-year distribution of what comparable players actually became, and what that is worth against a proposed offer.</p>
+
+<div class="warn"><b>The dollar layer is estimated, not measured.</b> Outcome probabilities are fitted to 11 recruiting classes and calibrated on held-out data. The values they are multiplied by are modeled from positional win contribution, with no compensation-market source behind them. Treat dollar figures as relative, not absolute. Special teams is excluded — the data cannot support a label.</div>
+
+<fieldset><legend>Deal</legend>
+<div class="row">
+<label>Total compensation ($)<input id="offer" type="number" value="400000" step="25000" min="0"></label>
+<label>Preference probability <input id="prefP" type="number" value="0.5" step="0.05" min="0.05" max="0.95"></label>
+<label class="chk"><input id="compare" type="checkbox"> Compare two recruits</label>
+<span class="dim" id="rOut"></span>
+</div>
+<p class="cap">Preference probability answers one question: you are indifferent between $0 for certain and a deal that wins the offer amount or loses it — what win probability makes you indifferent? 0.5 means risk neutral, which is what the predecessor assumed. Above 0.5 is risk averse.</p>
+</fieldset>
+
+<fieldset><legend>Recruit A</legend>
+<div class="grid">
+<label>Stars<input id="aStars" type="number" value="4" min="2" max="5"></label>
+<label>Composite rating<input id="aRating" type="number" value="0.92" step="0.005" min="0.7" max="1"></label>
+<label>National ranking<input id="aRanking" type="number" value="250" min="1"></label>
+<label>Height (in)<input id="aHeight" type="number" value="73" step="0.5"></label>
+<label>Weight (lb)<input id="aWeight" type="number" value="195"></label>
+<label>Position<select id="aPosition"></select></label>
+<label>Player source<select id="aSource"><option>HighSchool</option><option>Portal</option></select></label>
+<label>Era<select id="aEra"><option value="portal-nil">portal-nil</option><option value="rev-share">rev-share</option><option value="pre-portal">pre-portal</option></select></label>
+</div>
+</fieldset>
+
+<fieldset id="fsB"><legend>Recruit B</legend>
+<div class="grid">
+<label>Stars<input id="bStars" type="number" value="3" min="2" max="5"></label>
+<label>Composite rating<input id="bRating" type="number" value="0.85" step="0.005" min="0.7" max="1"></label>
+<label>National ranking<input id="bRanking" type="number" value="900" min="1"></label>
+<label>Height (in)<input id="bHeight" type="number" value="74" step="0.5"></label>
+<label>Weight (lb)<input id="bWeight" type="number" value="205"></label>
+<label>Position<select id="bPosition"></select></label>
+<label>Player source<select id="bSource"><option>Portal</option><option>HighSchool</option></select></label>
+<label>Era<select id="bEra"><option value="portal-nil">portal-nil</option><option value="rev-share">rev-share</option><option value="pre-portal">pre-portal</option></select></label>
+</div>
+</fieldset>
+
+<div class="panes two">
+<div class="pane"><h2>Recruit A</h2><div id="outA"></div></div>
+<div class="pane" id="paneB" style="display:none"><h2>Recruit B</h2><div id="outB"></div></div>
+</div>
+
+<footer>Comparable-player index: <span id="cohortInfo"></span>. Probabilities from a proportional-odds ordinal model fitted offline; only coefficients ship. Special teams excluded.</footer>
+</div>
+<script>__APP__</script>
+</body>
+</html>

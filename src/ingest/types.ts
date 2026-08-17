@@ -149,6 +149,20 @@ export type PositionGroup =
 export type PlayerSource = 'HighSchool' | 'Portal';
 
 /**
+ * Competitive/economic regime a season was played under.
+ *
+ * Two structural breaks, both real enough that pooling across them assumes a
+ * stationarity that does not hold:
+ *   2021 — one-time transfer without sit-out, and NIL, both arrive
+ *   2025 — revenue sharing
+ *
+ * Keyed on SEASON, not signing class: a 2018 signee playing in 2022 is competing
+ * in the portal/NIL environment regardless of what the market looked like when
+ * they signed. Signing-class effects remain available separately via recruitYear.
+ */
+export type Era = 'pre-portal' | 'portal-nil' | 'rev-share';
+
+/**
  * One recruit-season row, unlabeled.
  *
  * Stage 1 stops here deliberately: outcome labeling needs threshold decisions
@@ -182,6 +196,23 @@ export interface PlayerSeason {
   team: string | null;
   conference: string | null;
   power4: boolean;
+  /** Regime this season was played under. See Era. */
+  era: Era;
+
+  /**
+   * This athlete was on a roster in 2020 and so received the NCAA's blanket
+   * COVID eligibility waiver — an extra year that does not count against the
+   * normal five.
+   *
+   * Derived from actual 2020 roster presence rather than inferred from class
+   * year, because the waiver attached to competing in 2020, not to signing in a
+   * particular cycle. Load-bearing for year-5 comparisons: 2,871 athletes have
+   * 6+ roster seasons and 99.4% of them span 2020, so their sixth year falls
+   * outside the eligibilityYear 1-5 window this pipeline emits. Comparing a
+   * COVID-waiver career's year 5 against a non-waiver career's year 5 is not
+   * comparing the same thing.
+   */
+  covidEligibility: boolean;
 
   // Participation signals for labeling.
   /** True when the recruit appears on a roster for this season. */

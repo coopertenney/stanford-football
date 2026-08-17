@@ -45,13 +45,36 @@ import {
 import type {
   CfbdRecruit,
   CfbdRosterPlayer,
+  Era,
   PlayerSeason,
   PositionGroup,
 } from './types.ts';
 
-/** Recruit classes to ingest. PDR §3.1.4 asks for 10 (2015-2024); legacy had 7. */
+/**
+ * Recruit classes to ingest. PDR §3.1.4 asks for 10 (2015-2024); legacy had 7.
+ *
+ * Not extended back past 2015 on purpose. /player/usage returns nothing before
+ * 2013, so that is the hard floor — but the binding constraint is regime, not
+ * availability: seven of these classes already predate the 2021 portal/NIL break,
+ * and adding 2013-14 would buy volume in precisely the era the model should be
+ * down-weighting. The 2025 class contributes an eligibility-year-1 season.
+ */
 export const FIRST_RECRUIT_YEAR = 2015;
-export const LAST_RECRUIT_YEAR = 2024;
+export const LAST_RECRUIT_YEAR = 2025;
+
+/** Season the COVID blanket eligibility waiver attached to. */
+const COVID_SEASON = 2020;
+
+/** First season under each regime break. See the Era type. */
+const PORTAL_NIL_FROM = 2021;
+const REV_SHARE_FROM = 2025;
+
+const eraForSeason = (season: number): Era =>
+  season >= REV_SHARE_FROM
+    ? 'rev-share'
+    : season >= PORTAL_NIL_FROM
+      ? 'portal-nil'
+      : 'pre-portal';
 
 /**
  * Latest season with roster/usage data.
@@ -119,13 +142,20 @@ interface Indexes {
    * `season:normalizedTeam` for every team-season actually pulled.
    *
    * Load-bearing: the games pull is P4-only, so a rostered non-P4 player has no
-   * entry in `games` for reasons that have nothing to do with playing. Without
-   * this set, gamesPlayed would read 0 — indistinguishable from "did not play" —
-   * for 33,806 rostered non-P4 rows, and a labeler would call them all busts.
-   * Absent from this set means gamesPlayed is null (unknown), never 0.
+   * entry in `games` for reasons that have nothing to do with playing. Absent
+   * from this set means gamesPlayed is null (unknown), never 0.
+   *
+   * The affected population is every rostered non-P4 row — 54,870 at 11 classes
+   * (53,135 at the 10-class measurement). Before this fix they split two ways,
+   * both wrong: 33,806 read 0, which a labeler would take as "did not play,"
+   * and the remaining 19,329 read a nonzero count that was real but radically
+   * incomplete — those players were only visible because they appeared in a P4
+   * opponent's box score, so their totals covered P4 games alone.
    */
   gamesPulled: Set<string>;
   gamesIngested: boolean;
+  /** Athletes on a 2020 roster — recipients of the COVID eligibility waiver. */
+  rostered2020: Set<string>;
   rosterMeta: { total: number; linked: number };
   tier2Ambiguous: number;
 }
@@ -150,6 +180,7 @@ async function buildIndexes(includeGames: boolean): Promise<Indexes> {
   const rosterByAthlete = new Map<string, RosterSeason[]>();
   const rosterByNameTeam = new Map<string, RosterSeason[]>();
   const recruitIdToAthletes = new Map<string, Set<string>>();
+  const rostered2020 = new Set<string>();
   let rosterEntriesTotal = 0;
   let rosterEntriesWithRecruitIds = 0;
 
@@ -160,6 +191,7 @@ async function buildIndexes(includeGames: boolean): Promise<Indexes> {
     for (const player of roster) {
       const athleteId = String(player.id);
       const entry: RosterSeason = { season, player };
+      if (season === COVID_SEASON) rostered2020.add(athleteId);
 
       const byAthlete = rosterByAthlete.get(athleteId);
       if (byAthlete) byAthlete.push(entry);
@@ -321,11 +353,19 @@ async function buildIndexes(includeGames: boolean): Promise<Indexes> {
           continue;
         }
         gamesPulled.add(key(season, normalizeTeam(team.school)));
+        const wanted = normalizeTeam(team.school);
         // An athlete appears once per stat type, so the same game recurs many
         // times in the nested payload — count distinct game ids.
         const seen = new Set<string>();
         for (const game of boxScores) {
           for (const side of game.teams) {
+            // Only this team's side. game.teams carries BOTH teams, so counting
+            // every side double-counts: a player is tallied once from their own
+            // team's pull and again from each opponent's pull. That produced a
+            // distribution peaking at 22 games — exactly 2x an ~11-game season —
+            // with a max of 29. The opponent's players are counted correctly when
+            // that opponent is pulled in its own turn.
+            if (normalizeTeam(side.team) !== wanted) continue;
             for (const category of side.categories) {
               for (const type of category.types) {
                 for (const athlete of type.athletes) {
@@ -356,6 +396,7 @@ async function buildIndexes(includeGames: boolean): Promise<Indexes> {
     games,
     gamesPulled,
     gamesIngested: includeGames,
+    rostered2020,
     rosterMeta: { total: rosterEntriesTotal, linked: rosterEntriesWithRecruitIds },
     tier2Ambiguous,
   };
@@ -451,6 +492,8 @@ function buildHighSchoolCohort(indexes: Indexes, coverage: Coverage): PlayerSeas
         team: rosterPlayer?.team ?? null,
         conference: conf,
         power4: isPowerConference(conf),
+        era: eraForSeason(season),
+        covidEligibility: athleteId ? indexes.rostered2020.has(athleteId) : false,
         rostered: rosterPlayer != null,
         usageOverall,
         gamesPlayed: resolveGamesPlayed(
@@ -562,6 +605,8 @@ async function buildPortalCohort(
           team: rosterPlayer?.team ?? null,
           conference: conf,
           power4: isPowerConference(conf),
+          era: eraForSeason(season),
+          covidEligibility: indexes.rostered2020.has(athleteId),
           rostered: rosterPlayer != null,
           usageOverall: indexes.usage.get(key(season, athleteId)) ?? null,
           gamesPlayed: resolveGamesPlayed(

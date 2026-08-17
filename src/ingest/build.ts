@@ -175,6 +175,29 @@ function reportCoverage(rows: PlayerSeason[], coverage: Coverage): void {
   line('Power 4 rows', `${power4} (${pct(power4, rows.length)})`);
   line('Draft-pick rows', `${drafted} (${pct(drafted, rows.length)})`);
 
+  // Regime mix. The model should condition on this rather than average across a
+  // 2021 break that changed how players move and get paid.
+  console.log('\n=== REGIME ===');
+  const byEra = new Map<string, number>();
+  for (const row of rows) byEra.set(row.era, (byEra.get(row.era) ?? 0) + 1);
+  for (const era of ['pre-portal', 'portal-nil', 'rev-share'] as const) {
+    const n = byEra.get(era) ?? 0;
+    line(`Season era: ${era}`, `${n} (${pct(n, rows.length)})`);
+  }
+  const covidRecruits = new Set(
+    rows.filter((r) => r.covidEligibility).map((r) => r.recruitId),
+  );
+  line(
+    'Athletes with COVID waiver year',
+    `${covidRecruits.size} recruits, ${
+      rows.filter((r) => r.covidEligibility).length
+    } rows`,
+  );
+  console.log(
+    '  Their 6th year falls outside the 1-5 window, so year-5 comparisons',
+  );
+  console.log('  against non-waiver careers are not like-for-like.');
+
   // Sanity check: known NFL players must not land in the never-rostered pile.
   // Kyler Murray, Jarrett Stidham and Byron Cowart all did on the first build,
   // which is what forced the tier 2 link.

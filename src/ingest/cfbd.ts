@@ -25,11 +25,6 @@ const CACHE_DIR = 'cfbd_cache';
 /** Delay between uncached requests. The per-team game pull is ~770 calls. */
 const RATE_LIMIT_MS = 250;
 
-/**
- * The legacy pipeline hardcoded this key in gather_rb_data.py and the notebook.
- * Per CLAUDE.md that key is already effectively committed; the point of reading
- * from the environment here is to avoid adding a third copy, not to rotate it.
- */
 function apiKey(): string {
   const key = process.env['CFBD_API_KEY'];
   if (!key) {

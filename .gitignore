@@ -26,6 +26,18 @@ cfbd_data/
 data/
 
 # ---------------------------------------------------------------------------
+# LICENSED THIRD-PARTY DATA — never commit.
+#
+# PFF Ultimate exports, pulled under Stanford's team license. Unlike everything
+# else here this is NOT excluded because it is regenerable; it is excluded
+# because it is licensed and redistribution is not ours to grant. The assistant
+# GM signed off on a shareable derived file, which is a different thing from
+# publishing PFF's rows. Derived model coefficients and labels are fine to
+# commit; these source CSVs are not.
+# ---------------------------------------------------------------------------
+pff_data/
+
+# ---------------------------------------------------------------------------
 # TRACKED ON PURPOSE, listed here so nobody "cleans them up":
 #   yearly_wr_te_outcomes.csv   } model inputs. Regenerable but slow, and
 #   yearly_rb_outcomes.csv      } app.py needs them for a clean-clone run
@@ -38,3 +50,11 @@ data/
 
 # orchestrator board — live coordination state, not source
 .coord/
+
+# ---------------------------------------------------------------------------
+# Personal course material, NOT project source. Econ 137 lecture notes, used as
+# the reference for the certain-equivalent / u-curve design in src/model/decision.ts.
+# Copyrighted ("(c) Scott M. McKeon, All Rights Reserved") — do not commit or
+# redistribute. The design it informed is documented in the code and README.
+# ---------------------------------------------------------------------------
+risk tolerance framework/

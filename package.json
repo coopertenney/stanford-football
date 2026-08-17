@@ -11,11 +11,17 @@
     "ingest:games": "tsx src/ingest/build.ts --games",
     "typecheck": "tsc --noEmit",
     "check": "python3 scripts/check.py",
-    "check:data": "python3 scripts/check.py --only data"
+    "check:data": "python3 scripts/check.py --only data",
+    "label": "tsx src/ingest/labelBuild.ts",
+    "encode": "tsx src/encode/columnar.ts",
+    "train": "tsx src/model/train.ts",
+    "bundle": "tsx src/model/bundle.ts",
+    "build": "node build.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "esbuild": "^0.24.0"
   }
 }
