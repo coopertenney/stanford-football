@@ -29,6 +29,7 @@ const OUTCOME_CODE_NAMES = [
   'Impact Player',
   'Redshirt',
   'Insufficient data',
+  'Unresolved — never linked',
 ];
 
 let cohort: Cohort;

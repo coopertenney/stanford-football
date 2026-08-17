@@ -37,6 +37,14 @@ const TEAM_ALIASES: Record<string, string> = {
   'Mississippi Rebels': 'Ole Miss',
   'San Jose State Spartans': 'San José State',
   'USF Bulls': 'South Florida',
+  // These two are NOT mascot-only differences and longest-prefix matching sends
+  // them to the WRONG school, which is far worse than failing to match. Measured:
+  // "North Carolina State Wolfpack" resolved to "North Carolina", filing 781 PFF
+  // player-seasons under UNC and leaving NC State with 675 rostered rows at 0% PFF
+  // coverage and 100% of its reported labels Bust — zero Starters, ever. Same for
+  // Louisiana-Monroe collapsing into Louisiana (-Lafayette).
+  'North Carolina State Wolfpack': 'NC State',
+  'Louisiana-Monroe Warhawks': 'Louisiana Monroe',
 };
 
 /** One player-season from the WAR/WAA feed. */

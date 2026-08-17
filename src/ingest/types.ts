@@ -171,6 +171,14 @@ export type Era = 'pre-portal' | 'portal-nil' | 'rev-share';
  */
 export interface PlayerSeason {
   recruitId: string;
+  /**
+   * Name as it appears on the ROSTER feed, when the athlete was resolved.
+   *
+   * Kept separately from `name` (the recruiting-service string) because cross-feed
+   * joins should use the roster name: it agrees with PFF far more often. Joining on
+   * the recruiting name is what cost 16 first-round NFL picks a correct label.
+   */
+  rosterName: string | null;
   /** Null when the recruit never appears on any roster — a hard non-participant. */
   athleteId: string | null;
   name: string;

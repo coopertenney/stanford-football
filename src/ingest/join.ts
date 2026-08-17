@@ -474,6 +474,9 @@ function buildHighSchoolCohort(indexes: Indexes, coverage: Coverage): PlayerSeas
 
       rows.push({
         recruitId,
+        rosterName: rosterPlayer
+          ? `${rosterPlayer.firstName ?? ''} ${rosterPlayer.lastName ?? ''}`.trim() || null
+          : null,
         athleteId,
         name: recruit.name,
         position: group,
@@ -586,6 +589,9 @@ async function buildPortalCohort(
 
         rows.push({
           recruitId: `portal-${year}-${athleteId}`,
+          rosterName: rosterPlayer
+            ? `${rosterPlayer.firstName ?? ''} ${rosterPlayer.lastName ?? ''}`.trim() || null
+            : null,
           athleteId,
           name: `${entry.firstName ?? ''} ${entry.lastName ?? ''}`.trim(),
           position: group,

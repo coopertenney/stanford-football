@@ -47,6 +47,8 @@ interface Cohort {
   source: Uint8Array;
   recruitYear: Uint8Array;
   team: Uint16Array;
+  /** 1 when the athlete transferred at some point in their career. */
+  transferred: Uint8Array;
   outcomes: Uint8Array;
   names: string[];
   yearBase: number;
@@ -91,6 +93,7 @@ function decodeCohort(base64: string): Cohort {
     source: columns['source'] as Uint8Array,
     recruitYear: columns['recruitYear'] as Uint8Array,
     team: columns['team'] as Uint16Array,
+    transferred: (columns['transferred'] as Uint8Array) ?? new Uint8Array(header.count),
     outcomes: columns['outcomes'] as Uint8Array,
     names,
     yearBase: header.yearBase,
@@ -150,7 +153,14 @@ export function findComps(cohort: Cohort, profile: Profile, k = 40): Comp[] {
   const scored: Comp[] = [];
   for (let i = 0; i < cohort.count; i++) {
     if (cohort.position[i] !== positionCode) continue;
-    if (cohort.source[i] !== sourceCode) continue;
+    // A Portal query must reach every athlete who actually transferred, not just
+    // those whose surviving record happens to be filed as Portal. Deduplication
+    // keeps one row per athlete, so the transfer fact lives on a flag instead.
+    const isPortalQuery = profile.source === 'Portal';
+    const matchesSource = isPortalQuery
+      ? cohort.source[i] === sourceCode || cohort.transferred[i] === 1
+      : cohort.source[i] === sourceCode;
+    if (!matchesSource) continue;
     const stars = cohort.stars[i]!;
     const rating = cohort.rating[i]! / cohort.scale.rating;
     const ranking = cohort.ranking[i]!;

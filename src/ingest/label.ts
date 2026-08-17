@@ -55,7 +55,28 @@ export type Outcome =
    * fabricated number in front of a recruiter, so the group is excluded and the
    * exclusion is stated.
    */
-  | 'Insufficient Data';
+  | 'Insufficient Data'
+  /**
+   * The recruit was never resolved to an athlete, so nothing about their career
+   * was observed. NOT an outcome — censored.
+   *
+   * This state exists because omitting it reproduced the predecessor's error with
+   * the sign flipped. Labeling unresolved recruits Bust made 56,802 rows — 31.7%
+   * of all reported rows and 40.9% of the entire Bust pile — Bust because the
+   * pipeline could not find them, not because anything was measured. That is a
+   * definitional artifact dressed as a finding, exactly like the percentile cuts.
+   *
+   * The pile is provably not "players who did not make it": 40.9% have no
+   * committedTo at all (so tier 2 can never reach them), and 25.2% committed to a
+   * non-FBS school and will never appear on an FBS roster — they are out of
+   * universe. committedTo fill rate is itself a feed artifact varying 66.6% (2015)
+   * to 94.2% (2021), so leaving them in made cohort composition drift across
+   * classes for non-football reasons.
+   *
+   * Effect of excluding them: headline Bust falls from 77.5% to roughly 61-66%.
+   * Larger than any threshold decision in this file.
+   */
+  | 'Unresolved';
 
 /**
  * Share of the team's plays at which a season counts as holding a starting role.
@@ -121,18 +142,45 @@ export const ROTATION_SNAP_SHARE = 0.1;
  * is precisely what made the legacy labels a definitional artifact. Cohort Impact
  * rates remain free to vary by star rating, eligibility year and era.
  *
+ * RESCALED 2026-08-17 by k=0.60 after measurement showed the first derivation
+ * missed its own target by ~40%. The stated anchor is All-Conference volume, and
+ * IMPACT_TARGET_PER_SEASON declares 350; the original cuts produced a median of 263
+ * seasons over threshold (25%% low) and only 155 Impact labels per season inside the
+ * cohort. The cost was visible on players anyone would recognise: Lamar Jackson
+ * (Heisman, max WAA 0.653 against a 0.785 QB cut), Travon Walker (#1 overall) and
+ * Calvin Ridley (0.244 against a 0.245 cut) all read "Starter". 57 of the 68
+ * first-round picks missing Impact failed on threshold alone, not on the join.
+ *
+ * FINAL SCALE: 0.84 of the original cuts (0.60 x 1.4). The intermediate 0.60 came
+ * from a measurement taken BEFORE out-of-career seasons were censored; removing 43%%
+ * of the Bust pile lifted every other share, so 0.60 then overshot badly — 592
+ * Impact seasons in 2024 against a 350 target. Re-derived against current labels:
+ * by 2024 the cohort spans five recruit classes and therefore approximates a full
+ * FBS roster, so 350 is the right target for that season, and 0.84 yields 365.
+ *
+ * A NOTE ON THE TENSION, because it is real and should not be quietly optimised
+ * away: All-Conference volume and NFL-draftee recall pull in opposite directions.
+ * Loosening the cut until most draftees reach Impact would produce far more Impact
+ * seasons than All-Conference selections exist. Volume is the principled anchor —
+ * it is tied to an external quantity — while draftee recall is a VALIDATION signal.
+ * Tuning the threshold to maximise recall would be fitting to the validation set.
+ * This scale keeps the volume anchor and accepts imperfect recall.
+ *
+ * Relative position weighting is unchanged by any rescale, so the fix for QB 2.6%%
+ * vs OL 0.0%% still holds.
+ *
  * Derived 2026-08-17 from 104,478 PFF player-seasons. Re-derive with
  * calibrateImpactThreshold() if the slot assumptions change.
  */
 export const IMPACT_WAA: Record<PositionGroup, number> = {
-  QB: 0.785,
-  RB: 0.166,
-  WR: 0.245,
-  TE: 0.214,
-  OL: 0.114,
-  DL: 0.172,
-  LB: 0.169,
-  DB: 0.226,
+  QB: 0.6594,
+  RB: 0.1394,
+  WR: 0.2058,
+  TE: 0.1798,
+  OL: 0.0958,
+  DL: 0.1445,
+  LB: 0.142,
+  DB: 0.1898,
   // Specialists never reach Impact — see the Insufficient Data note above.
   ST: Number.POSITIVE_INFINITY,
 };
@@ -165,8 +213,34 @@ export interface LabelInputs {
   position: PositionGroup;
   /** Snaps in the player's NEXT season, for the redshirt rule. */
   nextSeasonSnaps: number | null;
+  /**
+   * Independent CFBD participation evidence, used ONLY to refuse a Bust that PFF
+   * cannot support. See the corroboration block in labelSeason.
+   */
+  gamesPlayed: number | null;
+  usageOverall: number | null;
+  /** Career-level: this athlete was drafted. Used as a Bust veto, never as a label. */
+  draftPick: boolean;
+  /**
+   * True when this season lies OUTSIDE the athlete's college career — before they
+   * first appeared on a roster, or after they last did.
+   *
+   * These must be censored, not Bust. `!rostered` fires for every empty slot in the
+   * 5-year window, so a player who left for the NFL after year 3 was labeled Bust in
+   * years 4 and 5. Measured consequence: 189 of 231 first-round picks carried at
+   * least one Bust season — Ashton Jeanty read Impact/Impact/Impact/BUST — and the
+   * UI renders all five slots as pips, so a coach sees a red mark on a top-10 pick.
+   * 1,599 of 2,006 Bust rows on drafted athletes were post-departure. 43.3% of the
+   * ENTIRE Bust pile is seasons in which the player was not enrolled.
+   */
+  outsideCareer: boolean;
   /** True when this player-season is the transfer year of a portal move. */
   transferYear: boolean;
+  /**
+   * Which tier resolved this recruit to an athlete, or null if never resolved.
+   * Null means we observed nothing and must not claim an outcome.
+   */
+  linkTier: 1 | 2 | null;
 }
 
 export interface LabelResult {
@@ -193,6 +267,11 @@ export function labelSeason(input: LabelInputs): LabelResult {
     position,
     nextSeasonSnaps,
     transferYear,
+    linkTier,
+    gamesPlayed,
+    usageOverall,
+    draftPick,
+    outsideCareer,
   } = input;
 
   // Specialists first, before anything else. A K/P/LS who never made a roster is
@@ -208,8 +287,29 @@ export function labelSeason(input: LabelInputs): LabelResult {
     };
   }
 
-  // Never on a roster: the clearest Bust there is, and the case the legacy
-  // pipeline could not even represent because it started from the stats endpoint.
+  // Never resolved to an athlete: we observed nothing, so we claim nothing.
+  // Checked BEFORE the rostered test, because an unresolved recruit is trivially
+  // "not rostered" and would otherwise be swept into Bust.
+  if (linkTier == null) {
+    return {
+      outcome: 'Unresolved',
+      snapShare: null,
+      reason: 'recruit never resolved to an athlete — nothing observed',
+    };
+  }
+
+  // Outside the college career entirely — left for the NFL, or had not arrived yet.
+  // Right-censored exactly like an unplayed future season.
+  if (outsideCareer) {
+    return {
+      outcome: 'Unresolved',
+      snapShare: null,
+      reason: 'season outside the athlete college career (departed or not yet enrolled)',
+    };
+  }
+
+  // Resolved, on the roster in other years but not this one: a real, measured Bust,
+  // and the case the legacy pipeline could not even represent.
   if (!rostered) {
     return { outcome: 'Bust', snapShare: null, reason: 'not on any FBS roster' };
   }
@@ -236,23 +336,53 @@ export function labelSeason(input: LabelInputs): LabelResult {
       reason: 'minimal snaps, meaningful role the following season',
     };
   }
-  // A transfer year with no participation is a sit-out, not an outcome.
-  if (negligible && transferYear) {
+  // A transfer year with no participation MAY be a sit-out — but inferring that
+  // from transferYear alone made Bust arithmetically unreachable for portal players
+  // in eligibility year 1. Every portal row has transferYear=true at year 1 and is
+  // rostered by construction (the match requires a destination roster entry), so
+  // this branch fired first, every time. The tool answered "what happens to a
+  // portal transfer in year one?" with 0.00% chance of busting and 40% chance of
+  // starting — landing precisely on the PDR's core use case #2, comparing two
+  // portal targets.
+  //
+  // A sit-out now requires POSITIVE evidence: the player must come back and play.
+  // Without that, a transfer who never saw the field is a bust, which is what it is.
+  if (negligible && transferYear && (nextSeasonSnaps ?? 0) >= 100) {
     return {
       outcome: 'Redshirt / Ineligible',
       snapShare,
-      reason: 'transfer season with no participation',
+      reason: 'transfer sit-out, confirmed by a real role the next season',
     };
   }
 
   // --- no PFF row ----------------------------------------------------------
-  // Rostered but absent from PFF means rostered and did not play. That is a
-  // signal, not missing data: PFF covers every FBS team and every position.
+  // A missing PFF row USUALLY means rostered-and-did-not-play. But the earlier
+  // claim that "PFF covers every FBS team and every position" was wrong: the WAA
+  // feed carries roughly 73 players per team against 110-120 rostered, so it is a
+  // played-in-a-game feed, not a roster feed. Treating absence as proof of
+  // non-participation put 16 first-round NFL picks — Derwin James, Patrick
+  // Surtain II, Ikem Ekwonu among them — in the Bust bucket for every season of
+  // their careers, because a name-format disagreement broke the join.
+  //
+  // So before calling it a Bust, check whether CFBD independently says the player
+  // was on the field. These signals come from a different provider through a
+  // different join, so agreement is meaningful and disagreement is disqualifying.
   if (pffSnaps == null) {
+    const playedPerGames = (gamesPlayed ?? 0) >= 6;
+    const playedPerUsage = (usageOverall ?? 0) >= 0.1;
+    if (playedPerGames || playedPerUsage || draftPick) {
+      return {
+        outcome: 'Unresolved',
+        snapShare: null,
+        reason: draftPick
+          ? 'no PFF row but the athlete was drafted — join failure, not a bust'
+          : `no PFF row but CFBD shows participation (games ${gamesPlayed ?? 0}, usage ${usageOverall ?? 0})`,
+      };
+    }
     return {
       outcome: 'Bust',
       snapShare: null,
-      reason: 'rostered, no PFF participation record',
+      reason: 'rostered, no PFF row, and no CFBD participation evidence',
     };
   }
 
@@ -398,7 +528,9 @@ export const REPORTED_OUTCOMES: Outcome[] = [
 ];
 
 export const isCensored = (outcome: Outcome): boolean =>
-  outcome === 'Redshirt / Ineligible' || outcome === 'Insufficient Data';
+  outcome === 'Redshirt / Ineligible' ||
+  outcome === 'Insufficient Data' ||
+  outcome === 'Unresolved';
 
 export type LabeledSeason = PlayerSeason & {
   outcome: Outcome;
