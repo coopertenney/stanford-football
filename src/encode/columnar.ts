@@ -78,7 +78,7 @@ export const OUTCOME_CODES: Record<Outcome, number> = {
 const MAX_ELIGIBILITY = 5;
 const YEAR_BASE = 2015;
 
-type LabeledRow = PlayerSeason & { outcome: Outcome };
+type LabeledRow = PlayerSeason & { outcome: Outcome; transferred?: boolean };
 
 interface Recruit {
   /** Used only to detect the same athlete appearing as both an HS and portal record. */
@@ -124,7 +124,7 @@ async function main(): Promise<void> {
     if (!recruit) {
       recruit = {
         athleteId: row.athleteId,
-        transferred: row.source === 'Portal',
+        transferred: row.source === 'Portal' || row.transferred === true,
         name: row.name,
         // The team a player is most associated with; first non-null wins.
         team: row.team ?? row.committedTo ?? '',
@@ -141,7 +141,7 @@ async function main(): Promise<void> {
       byRecruit.set(row.recruitId, recruit);
     }
     if (!recruit.team && row.team) recruit.team = row.team;
-    if (row.source === 'Portal') recruit.transferred = true;
+    if (row.source === 'Portal' || row.transferred === true) recruit.transferred = true;
     const slot = row.eligibilityYear - 1;
     if (slot >= 0 && slot < MAX_ELIGIBILITY) {
       recruit.outcomes[slot] = OUTCOME_CODES[row.outcome] ?? 0;

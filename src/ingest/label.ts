@@ -214,6 +214,16 @@ export interface LabelInputs {
   /** Snaps in the player's NEXT season, for the redshirt rule. */
   nextSeasonSnaps: number | null;
   /**
+   * False when the following season has not been played yet, so the redshirt rule
+   * cannot possibly confirm a sit-out.
+   *
+   * Without this, transfers at the right edge of the data were charged with a Bust
+   * they had no opportunity to disprove: 2025 portal arrivals read 44.5% Bust in
+   * eligibility year 1 against 27.6% for 2023 arrivals — a 17pp gap that is an
+   * artifact of the calendar, not of football.
+   */
+  nextSeasonObservable: boolean;
+  /**
    * Independent CFBD participation evidence, used ONLY to refuse a Bust that PFF
    * cannot support. See the corroboration block in labelSeason.
    */
@@ -272,6 +282,7 @@ export function labelSeason(input: LabelInputs): LabelResult {
     usageOverall,
     draftPick,
     outsideCareer,
+    nextSeasonObservable,
   } = input;
 
   // Specialists first, before anything else. A K/P/LS who never made a roster is
@@ -352,6 +363,15 @@ export function labelSeason(input: LabelInputs): LabelResult {
       outcome: 'Redshirt / Ineligible',
       snapShare,
       reason: 'transfer sit-out, confirmed by a real role the next season',
+    };
+  }
+  // Right edge: the confirming season does not exist yet, so neither Bust nor
+  // sit-out can be established. Censor rather than guess.
+  if (negligible && transferYear && !nextSeasonObservable) {
+    return {
+      outcome: 'Unresolved',
+      snapShare,
+      reason: 'transfer season at the edge of the data — outcome not yet observable',
     };
   }
 
@@ -573,6 +593,8 @@ export const isCensored = (outcome: Outcome): boolean =>
 
 export type LabeledSeason = PlayerSeason & {
   outcome: Outcome;
+  /** Athlete transferred at some point; survives deduplication. */
+  transferred?: boolean;
   snapShare: number | null;
   pffSnaps: number | null;
   pffWaa: number | null;

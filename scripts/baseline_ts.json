@@ -1,0 +1,24 @@
+{
+  "rows": 191588,
+  "reported": 82150,
+  "bustPct": 53.7,
+  "depthPct": 27.1,
+  "starterPct": 16.69,
+  "impactPct": 2.52,
+  "bustSpreadPp": 35.98,
+  "bustByYear": [
+    72.53,
+    56.58,
+    45.72,
+    39.74,
+    36.55
+  ],
+  "starBustGradient": [
+    13.07,
+    34.64,
+    52.79,
+    62.72
+  ],
+  "impactInReferenceSeason": 269,
+  "duplicateAthleteSeasons": 0
+}

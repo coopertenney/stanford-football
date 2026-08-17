@@ -31,6 +31,7 @@ import {
   type Outcome,
 } from './label.ts';
 import { loadPffWar, pffKey, PFF_POSITIONS } from './pff.ts';
+import { LAST_SEASON } from './join.ts';
 import type { PlayerSeason, PositionGroup } from './types.ts';
 
 const IN_FILE = 'data/player_seasons.json';
@@ -170,7 +171,7 @@ async function main(): Promise<void> {
   );
 
   // --- label ---------------------------------------------------------------
-  const labeled: LabeledSeason[] = [];
+  let labeled: LabeledSeason[] = [];
   for (const list of byRecruit.values()) {
     // Career span: first and last season this athlete actually appeared on a
     // roster. Slots outside it are censored rather than called Bust.
@@ -197,6 +198,7 @@ async function main(): Promise<void> {
         gamesPlayed: row.gamesPlayed,
         usageOverall: row.usageOverall,
         draftPick: row.draftPick,
+        nextSeasonObservable: row.season < LAST_SEASON,
         outsideCareer:
           firstSeason != null &&
           lastSeason != null &&
@@ -205,6 +207,63 @@ async function main(): Promise<void> {
       labeled.push({ ...row, outcome: result.outcome, snapShare: result.snapShare });
     });
   }
+
+  // ---- deduplicate athlete-seasons ---------------------------------------
+  // An athlete who was both a high-school recruit and a portal transfer has TWO
+  // records, so the same (athlete, season) appears twice with different eligibility
+  // indices — the HS record calls it year 3, the portal record calls it year 1.
+  // 10,060 such duplicate rows were reaching the report distributions AND
+  // train.ts, double-weighting every transfer in the headline numbers and in every
+  // fitted coefficient. Deduplicating only in columnar.ts fixed the browser and
+  // left the model wrong.
+  //
+  // Keep the row whose eligibility index reflects the true career clock — the
+  // record with the longer observed career, which is the HS one in almost every
+  // case. The transfer FACT is preserved on `transferred` so the portal cohort
+  // stays reachable.
+  const careerLength = new Map<string, number>();
+  for (const row of labeled) {
+    careerLength.set(row.recruitId, (careerLength.get(row.recruitId) ?? 0) + 1);
+  }
+  const keptBySeason = new Map<string, LabeledSeason>();
+  const deduped: LabeledSeason[] = [];
+  let duplicatesDropped = 0;
+  for (const row of labeled) {
+    // Unresolved recruits have no athleteId and cannot collide.
+    if (!row.athleteId) {
+      deduped.push(row);
+      continue;
+    }
+    const key = `${row.athleteId}:${row.season}`;
+    const incumbent = keptBySeason.get(key);
+    if (!incumbent) {
+      keptBySeason.set(key, row);
+      deduped.push(row);
+      continue;
+    }
+    duplicatesDropped++;
+    const challengerBetter =
+      (careerLength.get(row.recruitId) ?? 0) >
+      (careerLength.get(incumbent.recruitId) ?? 0);
+    // Either way the surviving row must remember the athlete transferred.
+    const everTransferred =
+      row.source === 'Portal' || incumbent.source === 'Portal';
+    if (challengerBetter) {
+      const at = deduped.indexOf(incumbent);
+      if (at >= 0) deduped.splice(at, 1);
+      keptBySeason.set(key, row);
+      deduped.push(row);
+      if (everTransferred) row.transferred = true;
+    } else if (everTransferred) {
+      incumbent.transferred = true;
+    }
+  }
+  console.log(
+    `\ndeduplicated ${duplicatesDropped} duplicate athlete-seasons (${labeled.length} -> ${deduped.length})`,
+  );
+  // Reassign rather than splice/push-spread: spreading ~191k elements into push
+  // exceeds the argument limit and throws, which silently skipped the rewrite.
+  labeled = deduped;
 
   // ---- career-level draftee veto -----------------------------------------
   // A drafted athlete whose every observed season reads Bust is not a finding, it

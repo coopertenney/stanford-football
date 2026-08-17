@@ -16,7 +16,8 @@
     "encode": "tsx src/encode/columnar.ts",
     "train": "tsx src/model/train.ts",
     "bundle": "tsx src/model/bundle.ts",
-    "build": "node build.mjs"
+    "build": "node build.mjs",
+    "calibrate": "tsx src/ingest/calibrate.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
