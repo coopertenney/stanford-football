@@ -141,26 +141,49 @@ export const TIER_MULTIPLIER: Record<OrderedOutcome, number> = {
  * about one program's budget inside a general-purpose model.
  *
  * REFERENCE POINTS, for setting the control rather than for the code to choose from.
- * All are public, all are estimates, none is a recommendation:
+ * REVISED after primary-source research; the earlier figures were too low, and
+ * systematically so.
  *
- *   1.00  Power 4 average, the basis of the ESPN survey figures
- *   ~0.6  ACC / Big 12 — ESPN puts their quarterbacks at $1-2M against $2-3M in
- *         the SEC and Big Ten
- *   ~0.25 a program on a reduced conference distribution. ACC tax filings put Cal,
- *         Stanford and SMU near $19.9M against ~$47.1M for full members through
- *         their first nine years, so roughly 0.6 x (19.9/47.1)
- *   ~0.15 Group of 6
+ * The error: the first set was derived from CONFERENCE MEDIA REVENUE ratios. Media
+ * revenue has no floor. Roster spend does — roughly $15.4M for any school funding
+ * the revenue-share cap — so spend ratios compress hard toward 1.0 relative to
+ * revenue ratios. ACC/Big 12 moved 0.60 -> 0.85 and a reduced-share program moved
+ * 0.25 -> ~0.70 on that correction alone.
+ *
+ *   1.60-2.00  elite (Texas, LSU, Ohio State, Oregon, Miami, Notre Dame, Texas A&M)
+ *   1.20-1.55  strong (Georgia, Michigan, Tennessee, Ole Miss, Oklahoma)
+ *   1.00       Power 4 median, ~$25M football roster spend, the survey basis
+ *   0.85       typical ACC / Big 12
+ *   0.70-0.75  reduced-share but donor-backed
+ *   0.60       reduced-share and revenue-constrained
+ *   0.20-0.30  Group of 5 upper (American, Mountain West)
+ *   0.10-0.15  Group of 5 lower (Sun Belt, MAC, Conference USA)
+ *
+ * CONFERENCE IS THE WRONG UNIT, and this control should eventually be replaced.
+ * Within-conference spread (2-2.5x) EXCEEDS between-conference spread (~1.35x).
+ * Miami is top-two nationally while several ACC peers are bottom-tier; Texas Tech
+ * outspends most of the SEC from the poorest P4 conference. The ACC has formally
+ * abandoned equal sharing — 60% of media is now allocated on viewership, giving a
+ * $35M-$65M per-school range.
+ *
+ * The sharpest case sits inside one cohort: two schools on the IDENTICAL reduced ACC
+ * contract can have materially different capacity, because one funds below the cap
+ * while the other carries earmarked philanthropy. A conference multiplier cannot
+ * represent that, which is exactly why this value is user-set rather than inferred.
  *
  * A program that knows its own per-position budget should bypass this entirely and
- * set `positionValue` directly — that is the strongest version of the model, because
- * then the scale is measured rather than inferred and only the tier shape is
- * estimated.
+ * set `positionValue` directly — the scale becomes measured rather than inferred,
+ * and only the tier shape stays estimated.
  */
 export const REFERENCE_SPEND_LEVEL: Record<string, number> = {
-  'power4-average': 1.0,
-  'acc-big12': 0.6,
-  'reduced-share': 0.25,
-  'group-of-6': 0.15,
+  elite: 1.8,
+  strong: 1.35,
+  'power4-median': 1.0,
+  'acc-big12-typical': 0.85,
+  'reduced-share-donor-backed': 0.72,
+  'reduced-share-constrained': 0.6,
+  'g5-upper': 0.25,
+  'g5-lower': 0.12,
 };
 
 /** Default to the Power 4 average — the basis the source figures were measured on. */
