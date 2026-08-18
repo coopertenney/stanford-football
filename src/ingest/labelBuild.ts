@@ -32,6 +32,7 @@ import {
 } from './label.ts';
 import { loadPffWar, pffKey, PFF_POSITIONS } from './pff.ts';
 import { LAST_SEASON } from './join.ts';
+import { normalizeName } from './positions.ts';
 import type { PlayerSeason, PositionGroup } from './types.ts';
 
 const IN_FILE = 'data/player_seasons.json';
@@ -135,11 +136,55 @@ async function main(): Promise<void> {
     `estimated plays for ${teamPlays.size} team-seasons from ${pffAsRows.length} PFF rows`,
   );
 
-  // Schools that appear as an FBS roster team anywhere in the window. Used to tell
-  // "committed FBS and never played" (measurable) from "never had an FBS path".
+  // GENUINE FBS schools only — teams that carry a conference from /teams/fbs.
+  // Using "any team appearing in a roster pull" swept in 151 FCS/DII programs
+  // (Harvard, Yale, North Dakota State, Chattanooga...), so 47% of the auto-Bust
+  // pile was recruits who signed with schools that were never in the universe.
   const fbsSchools = new Set(
-    seasons.map((r) => r.team).filter((t): t is string => t != null),
+    seasons
+      .filter((r) => r.team != null && r.conference != null)
+      .map((r) => r.team as string),
   );
+
+  // Roster names by school, for the second and more important gate. A recruit whose
+  // exact normalized name appears on the roster of the school they committed to,
+  // inside their eligibility window, is a JOIN FAILURE — not a non-participant.
+  // 16.1% of the auto-Bust pile matched this way, and the error rate rose with
+  // talent: 2-star 10.8%, 3-star 20.2%, 4-star 45.7%, 5-star 83.3%. That is how
+  // Bryce Young, Justin Fields and Quinn Ewers came to render as five Bust pips —
+  // tier 2 correctly refused to link them because their names are duplicated in the
+  // cohort, and the new rule reinterpreted that principled refusal as evidence of
+  // absence.
+  const rosterNameAtSchool = new Set<string>();
+  for (const row of seasons) {
+    if (!row.rostered || !row.team || !row.rosterName) continue;
+    rosterNameAtSchool.add(`${normalizeName(row.rosterName)}|${row.team}`);
+  }
+
+  // Third gate: never auto-Bust a name that belongs to an NFL draft pick anywhere in
+  // the data. An unlinked recruit carries no athleteId, so draftPick is false for
+  // them and every downstream veto is blind — this is the only place that hole can
+  // be closed. If someone by this name reached the NFL, absence of a link is far
+  // likelier to be a join failure than evidence they never played.
+  // Read the DRAFT LIST directly, not the labeled rows. Deriving it from rows with
+  // draftPick=true was circular: draftPick is keyed on athleteId, and an unlinked
+  // recruit has none — so the very players this gate exists to protect were the ones
+  // it could not see. Justin Fields stayed all-Bust through the first two gates for
+  // exactly this reason.
+  const draftedNamesEver = new Set<string>();
+  for (let year = 2016; year <= 2026; year++) {
+    try {
+      const picks = JSON.parse(
+        await readFile(`cfbd_cache/draft_picks__year-${year}.json`, 'utf8'),
+      ) as { name?: string }[];
+      for (const pick of picks) {
+        if (pick.name) draftedNamesEver.add(normalizeName(pick.name));
+      }
+    } catch {
+      // Draft year not cached; the other gates still apply.
+    }
+  }
+  console.log(`drafted-name guard: ${draftedNamesEver.size} names from the draft list`);
 
   // --- per-player context needed by the redshirt rule ----------------------
   // Group by recruit so each season can see the next one, and detect the season a
@@ -207,7 +252,15 @@ async function main(): Promise<void> {
         nextSeasonObservable: row.season < LAST_SEASON,
         // committedTo is populated and names a school that fields an FBS roster in
         // our data. Absent committedTo, a roster appearance was never reachable.
-        committedFbs: row.committedTo != null && fbsSchools.has(row.committedTo),
+        // Auto-Bust ONLY when the school is genuinely FBS AND no player of that
+        // name ever appeared on its roster. Both gates are required.
+        committedFbs:
+          row.committedTo != null &&
+          fbsSchools.has(row.committedTo) &&
+          !rosterNameAtSchool.has(
+            `${normalizeName(row.name)}|${row.committedTo}`,
+          ) &&
+          !draftedNamesEver.has(normalizeName(row.name)),
         outsideCareer:
           firstSeason != null &&
           lastSeason != null &&
@@ -417,6 +470,46 @@ async function main(): Promise<void> {
     `  ${busts.length === 0 ? 'PASS' : 'FAIL'}  draftees labeled Bust: ${busts.length}` +
       ` (first round: ${firstRoundBusts.length})`,
   );
+
+  // The check above is a THEOREM, not a measurement: the career veto rewrites every
+  // Bust row of any all-Bust drafted athlete before this recomputes, so rank 1 is
+  // unreachable. Two real checks follow. Both can fail.
+  //
+  // CHECK A — any Bust SEASON, not just a bad best season. The UI renders all five
+  // eligibility slots as pips, so one red pip on a first-rounder is the visible
+  // failure regardless of what the athlete's best year was.
+  const anyBust = new Map<string, { name: string; round: number | null }>();
+  for (const row of labeled) {
+    if (row.outcome !== 'Bust' || !row.draftPick || !row.athleteId) continue;
+    if (row.position === 'ST') continue;
+    anyBust.set(row.athleteId, { name: row.name, round: row.draftRound ?? null });
+  }
+  const anyBustFirst = [...anyBust.values()].filter((d) => d.round === 1);
+  console.log(
+    `  ${anyBust.size === 0 ? 'PASS' : 'WARN'}  draftees with ANY Bust season: ${anyBust.size}` +
+      ` (first round: ${anyBustFirst.length})`,
+  );
+  for (const d of anyBustFirst.slice(0, 5)) {
+    console.log(`        round 1: ${d.name}`);
+  }
+
+  // CHECK B — draftees the veto CANNOT see. draftPick is keyed on athleteId, and an
+  // unlinked recruit has none, so anyone labeled Bust without ever being linked is
+  // invisible to every guard above. This is the hole Bryce Young fell through.
+  const draftedNames = new Set<string>();
+  for (const row of labeled) {
+    if (row.draftPick && row.name) draftedNames.add(normalizeName(row.name));
+  }
+  const unlinkedBustDrafted = new Set<string>();
+  for (const row of labeled) {
+    if (row.outcome !== 'Bust' || row.athleteId != null) continue;
+    const key = normalizeName(row.name);
+    if (draftedNames.has(key)) unlinkedBustDrafted.add(key);
+  }
+  console.log(
+    `  ${unlinkedBustDrafted.size === 0 ? 'PASS' : 'FAIL'}  UNLINKED recruits labeled Bust whose name matches a draftee: ${unlinkedBustDrafted.size}`,
+  );
+  console.log('        (these carry no athleteId, so no veto or gate above can see them)');
   console.log(
     `  INFO  draftees with no supportable season: ${unseen.length} (${pct(unseen.length, positional.length)})`,
   );
