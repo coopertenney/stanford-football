@@ -132,51 +132,63 @@ export const TIER_MULTIPLIER: Record<OrderedOutcome, number> = {
 };
 
 /**
- * Program-tier discount on the Power 4 average.
+ * Program spending level, as a share of the Power 4 average.
  *
- * The ESPN figures are a Power 4 mean skewed by the SEC and Big Ten. ESPN puts
- * ACC/Big 12 quarterbacks at $1-2M against $2-3M in the SEC/Big Ten — roughly a
- * 0.6x conference discount.
+ * NOT a fixed multiplier and NOT school-specific in code. The ESPN figures are a
+ * Power 4 mean skewed by the SEC and Big Ten, so every program needs its own
+ * position on that scale — and that number is the user's to supply, not this file's
+ * to assert. An earlier version hardcoded a Stanford value, which buried a judgment
+ * about one program's budget inside a general-purpose model.
  *
- * Stanford is likely BELOW even the ACC average: it entered the conference on a 30%
- * partial television revenue share, rising to 70% only in year eight, so its capacity
- * is materially lower than conference peers. Default is set to the ACC figure rather
- * than something Stanford-specific because no public number exists for a private
- * school — this is the value most in need of replacement with a real internal budget.
+ * REFERENCE POINTS, for setting the control rather than for the code to choose from.
+ * All are public, all are estimates, none is a recommendation:
+ *
+ *   1.00  Power 4 average, the basis of the ESPN survey figures
+ *   ~0.6  ACC / Big 12 — ESPN puts their quarterbacks at $1-2M against $2-3M in
+ *         the SEC and Big Ten
+ *   ~0.25 a program on a reduced conference distribution. ACC tax filings put Cal,
+ *         Stanford and SMU near $19.9M against ~$47.1M for full members through
+ *         their first nine years, so roughly 0.6 x (19.9/47.1)
+ *   ~0.15 Group of 6
+ *
+ * A program that knows its own per-position budget should bypass this entirely and
+ * set `positionValue` directly — that is the strongest version of the model, because
+ * then the scale is measured rather than inferred and only the tier shape is
+ * estimated.
  */
-export const PROGRAM_TIER: Record<string, number> = {
-  'sec-bigten': 1.0,
-  acc: 0.6,
-  big12: 0.6,
-  // Stanford specifically, NOT the ACC average. ACC tax filings put Cal, Stanford
-  // and SMU on reduced distributions averaging ~$19.9M against ~$47.1M for full
-  // members, for their first nine years. Borrowing a scale from a full-share ACC
-  // peer therefore overstates Stanford's revenue base by roughly 2x, in a known
-  // direction. 0.6 x (19.9/47.1) ~= 0.25.
-  stanford: 0.25,
-  g5: 0.15,
+export const REFERENCE_SPEND_LEVEL: Record<string, number> = {
+  'power4-average': 1.0,
+  'acc-big12': 0.6,
+  'reduced-share': 0.25,
+  'group-of-6': 0.15,
 };
+
+/** Default to the Power 4 average — the basis the source figures were measured on. */
+export const DEFAULT_SPEND_LEVEL = 1.0;
 
 export interface ValueConfig {
   /** Per-position starter-season dollars. Defaults to POSITION_STARTER_VALUE. */
   positionValue?: Partial<Record<PositionGroup, number>>;
   /** Tier multipliers. Defaults to TIER_MULTIPLIER. */
   tierMultiplier?: Partial<Record<OrderedOutcome, number>>;
-  /** Program-tier discount on the Power 4 average. */
-  programTier?: number;
+  /**
+   * This program's spending as a share of the Power 4 average. See
+   * REFERENCE_SPEND_LEVEL for calibration points. Set by the user, not inferred.
+   */
+  spendLevel?: number;
 }
 
 export const DEFAULT_VALUE_CONFIG: ValueConfig = {
-  programTier: PROGRAM_TIER['stanford'] ?? 0.25,
+  spendLevel: DEFAULT_SPEND_LEVEL,
 };
 
-/** What one starter-season is worth at this position, after the program discount. */
+/** What one starter-season is worth at this position, at this program's spend level. */
 export function starterSeasonValue(
   position: PositionGroup,
   config: ValueConfig = DEFAULT_VALUE_CONFIG,
 ): number {
   const base = config.positionValue?.[position] ?? POSITION_STARTER_VALUE[position];
-  return base * (config.programTier ?? 1);
+  return base * (config.spendLevel ?? DEFAULT_SPEND_LEVEL);
 }
 
 /** Dollar value of one season at a given outcome and position. */
@@ -233,7 +245,7 @@ export const VALUE_PROVENANCE = {
   scaleConfidence: 'moderate — two independent methods converge; nothing audited',
   tierSource: 'ESPN within-position backup/starter/elite breakdown, Aug 2026',
   bustSource: 'not market-derived; reasoning about roster-spot opportunity cost',
-  programTierSource: 'ESPN ACC/Big12 vs SEC/BigTen QB ranges; ~0.6x',
+  spendLevelSource: 'user-supplied; reference points in REFERENCE_SPEND_LEVEL',
   errorBars: '+/-30%',
   notKnowable: 'per-player compensation; Stanford-specific allocation; a star-rating multiplier',
 } as const;

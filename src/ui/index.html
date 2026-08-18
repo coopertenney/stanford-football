@@ -63,9 +63,11 @@ footer{margin-top:34px;padding-top:16px;border-top:1px solid var(--grid);font-si
 <div class="row">
 <label>Total compensation ($)<input id="offer" type="number" value="400000" step="25000" min="0"></label>
 <label>Preference probability <input id="prefP" type="number" value="0.5" step="0.05" min="0.05" max="0.95"></label>
+<label>Program spend level<input id="spend" type="number" value="1.0" step="0.05" min="0.05" max="1.5"></label>
 <label class="chk"><input id="compare" type="checkbox"> Compare two recruits</label>
 <span class="dim" id="rOut"></span>
 </div>
+<p class="cap"><b>Program spend level</b> is your budget as a share of the Power 4 average, and it scales every dollar figure. Reference points: 1.00 Power 4 average &middot; ~0.6 ACC/Big&nbsp;12 &middot; ~0.25 a program on a reduced conference distribution &middot; ~0.15 Group of 6. Set it to your own number &mdash; it is not inferred, and the default is the average the source survey was measured on.</p>
 <p class="cap">Preference probability answers one question: you are indifferent between $0 for certain and a deal that wins the offer amount or loses it — what win probability makes you indifferent? 0.5 means risk neutral, which is what the predecessor assumed. Above 0.5 is risk averse.</p>
 </fieldset>
 

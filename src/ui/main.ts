@@ -183,6 +183,9 @@ function renderOne(target: string, evaluation: Evaluation, offer: number, positi
 function run(): void {
   const offer = Number($<HTMLInputElement>('offer').value) || 0;
   const p = Number($<HTMLInputElement>('prefP').value) || 0.5;
+  // Scale is the user's to set; the model never asserts a program's budget.
+  const spendLevel = Number($<HTMLInputElement>('spend').value) || 1;
+  __BUNDLE__.value = { ...__BUNDLE__.value, spendLevel };
   $('rOut').textContent = `r = ${riskOddsLabel(p)}`;
 
   const a = readProfile('a');
