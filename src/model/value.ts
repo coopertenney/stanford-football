@@ -23,6 +23,24 @@
  * consistent with ESPN's own "plenty competing for a starting job making $200,000
  * or less". Two independent methods converging is the strongest validation available.
  *
+ * CROSS-CHECKED against ACC revenue-share budget allocation by position group
+ * (Opendorse College Football Kickoff report, Aug 2025) — real budget data from
+ * Stanford's own conference: QB 19.4%, OL 17.0%, WR 16.3%, DL 15.5%, RB 10.6%,
+ * DB 7.8%, LB 6.8%, TE 5.3%, ST 1.3%. Those are GROUP shares, so converting to a
+ * per-player figure needs a divisor the source does not publish. Dividing by
+ * starting slots implies a QB premium of 3.57x a receiver, against the 2.86x in the
+ * table below — so this table is if anything CONSERVATIVE on the largest price in
+ * the sport. The two disagree more on OL, DB and LB, where a starting-slot divisor
+ * is a poor proxy for roster depth; ESPN's figures are per-player by construction
+ * and are preferred for that reason.
+ *
+ * NOT USED: the 75/15/5 football/MBB/WBB split widely quoted from House v. NCAA.
+ * It is the BACK-DAMAGES allocation for past athletes and an expert's opinion about
+ * a counterfactual; the settlement is silent on forward per-sport allocation. The
+ * "$146,000 per player" figure circulating from it is $20.5M x 0.75 / 105 — three
+ * assumptions and a calculator, reproduced without measurement. Schools where
+ * records were actually obtained came in below it.
+ *
  * A second source agrees on the shape: a position chart via FootballScoop
  * (12 Jun 2026) normalizes to within +/-0.2 of these ratios for eight of twelve
  * positions. The QB premium of ~3x a non-QB starter is confirmed by both and is the
@@ -97,7 +115,18 @@ export const POSITION_STARTER_VALUE: Record<PositionGroup, number> = {
  */
 export const TIER_MULTIPLIER: Record<OrderedOutcome, number> = {
   Bust: -0.15,
-  'Depth / Rotation': 0.65,
+  // 0.55, and the sources genuinely disagree — this is the least settled number
+  // in the file. ESPN's within-position backup band implies 0.58-0.65; Opendorse's
+  // starter-vs-backup AAV bands (P4 backup $199-233K against a $620-783K non-QB
+  // starter) imply 0.29-0.31; the PDR said 0.25. Shipping 0.65 put us at the top of
+  // one range and double the other two.
+  //
+  // The sources are measuring different players. Opendorse's band spans every
+  // backup on a 105-man roster including deep reserves, while THIS tier requires
+  // >=10% of team snaps — a genuine rotation player, nearer ESPN's No.2. So the
+  // higher figure is the right family, but 0.65 was its ceiling. 0.55 sits inside
+  // ESPN's range without pretending the disagreement is resolved.
+  'Depth / Rotation': 0.55,
   Starter: 1.0,
   'Impact Player': 2.0,
 };
@@ -119,6 +148,12 @@ export const PROGRAM_TIER: Record<string, number> = {
   'sec-bigten': 1.0,
   acc: 0.6,
   big12: 0.6,
+  // Stanford specifically, NOT the ACC average. ACC tax filings put Cal, Stanford
+  // and SMU on reduced distributions averaging ~$19.9M against ~$47.1M for full
+  // members, for their first nine years. Borrowing a scale from a full-share ACC
+  // peer therefore overstates Stanford's revenue base by roughly 2x, in a known
+  // direction. 0.6 x (19.9/47.1) ~= 0.25.
+  stanford: 0.25,
   g5: 0.15,
 };
 
@@ -132,7 +167,7 @@ export interface ValueConfig {
 }
 
 export const DEFAULT_VALUE_CONFIG: ValueConfig = {
-  programTier: PROGRAM_TIER['acc'] ?? 0.6,
+  programTier: PROGRAM_TIER['stanford'] ?? 0.25,
 };
 
 /** What one starter-season is worth at this position, after the program discount. */
