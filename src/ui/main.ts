@@ -15,6 +15,7 @@ import {
   type Evaluation,
   type Profile,
 } from './app.ts';
+import { starterSeasonValue } from '../model/value.ts';
 import type { Era, PlayerSource, PositionGroup } from '../ingest/types.ts';
 
 declare const __BUNDLE__: any;
@@ -128,15 +129,22 @@ function histogram(mc: Evaluation['mc'], offer: number): string {
 function renderOne(target: string, evaluation: Evaluation, offer: number, position: PositionGroup): void {
   const { ev, mc, comps } = evaluation;
   const values = valueVector(position, __BUNDLE__.value);
+  // One starter-season at this position, after the program-tier discount. Dividing
+  // by it converts every dollar figure into starter-season equivalents — the unit
+  // that carries NO estimated scale, so a reader can judge the football claim
+  // separately from the pricing claim.
+  const ss = starterSeasonValue(position, __BUNDLE__.value) || 1;
+  const dual = (n: number): string => `${money(n)}<span class="eq">${(n / ss).toFixed(2)} SS</span>`;
 
   const metrics = [
-    ['Expected value', money(ev.expectedValue), 'Sum across all 5 years, retention-weighted'],
+    ['Expected value', dual(ev.expectedValue), 'Sum across all 5 years, retention-weighted'],
     ['Simulated mean', money(mc.mean), 'Should match EV — a gap means a modelling bug'],
-    ['Certain equivalent', money(evaluation.certainEquivalent), 'Risk-adjusted worth of the deal'],
+    ['Certain equivalent', dual(evaluation.certainEquivalent), 'Risk-adjusted worth of the deal'],
     ['Risk discount', money(evaluation.riskDiscount), 'EV minus certain equivalent'],
-    ['Net value', money(ev.netValue), 'EV minus total compensation'],
+    ['Net value', dual(ev.netValue), 'EV minus total compensation'],
     ['ROI', Number.isFinite(ev.roi) ? `${ev.roi.toFixed(2)}x` : '—', 'EV / compensation (one definition)'],
-    ['Value above replacement', money(ev.valueAboveReplacement), 'vs the player you would otherwise have'],
+    ['Value above replacement', dual(ev.valueAboveReplacement), 'vs the player you would otherwise have'],
+    ['One starter-season here', money(ss), `${position} starter, ACC-adjusted (ESPN 2026 survey)`],
     ['Upside P(Impact)', pct(ev.upsideProbability), 'Best year'],
     ['Downside P(Bust)', pct(ev.downsideProbability), 'Worst year'],
     ['Outcome std dev', money(ev.outcomeStdDev), 'Spread of total value'],

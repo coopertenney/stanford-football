@@ -9,7 +9,12 @@
  */
 import { readFile, writeFile } from 'node:fs/promises';
 import { buildRetention, retentionFor } from './retention.ts';
-import { DEFAULT_VALUE_CONFIG, POSITION_WEIGHT, TIER_MULTIPLIER } from './value.ts';
+import {
+  DEFAULT_VALUE_CONFIG,
+  POSITION_STARTER_VALUE,
+  TIER_MULTIPLIER,
+  VALUE_PROVENANCE,
+} from './value.ts';
 import type { PositionGroup } from '../ingest/types.ts';
 
 /** Newest recruit class with all five eligibility years observed (2021 + 4 = 2025). */
@@ -40,9 +45,10 @@ async function main(): Promise<void> {
     retention,
     value: {
       ...DEFAULT_VALUE_CONFIG,
-      positionWeight: POSITION_WEIGHT,
+      positionValue: POSITION_STARTER_VALUE,
       tierMultiplier: TIER_MULTIPLIER,
     },
+    provenance: VALUE_PROVENANCE,
   };
   await writeFile('data/bundle.json', JSON.stringify(bundle));
   const bytes = (await readFile('data/bundle.json')).byteLength;

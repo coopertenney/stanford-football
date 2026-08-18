@@ -29,6 +29,7 @@ h3{font:600 13px system-ui;margin:22px 0 4px;letter-spacing:.03em;text-transform
 .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--grid);border:1px solid var(--grid)}
 .metric{background:var(--surface);padding:10px 12px;display:flex;flex-direction:column;gap:2px}
 .metric b{font:600 19px ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums}
+.eq{display:block;font:500 11px ui-monospace,Menlo,monospace;color:var(--muted);letter-spacing:.02em}
 .ml{font-size:11px;color:var(--muted);letter-spacing:.03em}
 .mn{font-size:10.5px;color:var(--muted)}
 .chart{margin:6px 0 4px}
@@ -56,7 +57,7 @@ footer{margin-top:34px;padding-top:16px;border-top:1px solid var(--grid);font-si
 <h1>Player Valuation</h1>
 <p class="sub">Enter a recruit profile to see the year-by-year distribution of what comparable players actually became, and what that is worth against a proposed offer.</p>
 
-<div class="warn"><b>The dollar layer is estimated, not measured.</b> Outcome probabilities are fitted to 11 recruiting classes and calibrated on held-out data. The values they are multiplied by are modeled from positional win contribution, with no compensation-market source behind them. Treat dollar figures as relative, not absolute. Special teams is excluded — the data cannot support a label.</div>
+<div class="warn"><b>Dollar figures carry roughly &plusmn;30% error.</b> Outcome probabilities are fitted to 11 recruiting classes and calibrated against held-out data. The prices they are multiplied by come from an ESPN survey of 12+ GMs and 12+ agents (Aug 2026), discounted 0.6&times; for ACC pricing &mdash; a practitioner survey, not an audited figure. No audited per-player compensation data exists publicly, and Stanford is private so its own allocation is not knowable. <b>Every figure is also shown in starter-seasons (SS)</b>, which carries no price assumption: 1.00&nbsp;SS means "worth one season from a starter at this position, whatever you pay one." Special teams is excluded &mdash; the data cannot support a label.</div>
 
 <fieldset><legend>Deal</legend>
 <div class="row">

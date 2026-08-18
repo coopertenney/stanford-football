@@ -1,108 +1,148 @@
 /**
- * Value mapping — scale separated from shape.
+ * Value mapping — grounded in public market data where it exists, labelled where
+ * it does not.
  *
- * WHAT WAS WRONG BEFORE
- * value_mapping.json held one unsourced dollar figure per (position, tier):
- * WR Starter = $400k, TE Starter = $300k, and no QB entry at all. Those numbers
- * came from the PDR's illustrative defaults, not from any market. They were then
- * multiplied by a probability to produce a dollar recommendation, so the entire
- * output inherited a guess while looking like a measurement.
+ * WHAT CHANGED AND WHY
+ * This previously computed value as `starterSeasonValue x positionWeight`, a
+ * product of TWO invented numbers: a $350,000 scale I made up, and a positional
+ * multiplier derived from measured PFF win headroom. The scale had no source at all.
  *
- * THE STRUCTURE HERE
- *   Value(outcome, position) = scale(position) x shape(outcome)
+ * Public reporting turns out to publish per-position STARTER DOLLARS directly, so
+ * the product collapses into one measured number per position. That removes the
+ * invented constant entirely rather than dressing it up.
  *
- * SCALE is what the program allocates to that position group. It is the part a
- * program KNOWS. Revenue sharing bounds it — the House settlement caps school
- * spending around $20.5M — so a program can state its own number rather than
- * inherit a league average. Stanford's willingness to pay is not Texas's.
+ * SOURCE OF THE POSITION DOLLARS
+ * ESPN, Max Olson, 11 Aug 2026, "What positions cost in the transfer portal" —
+ * surveyed 12+ general managers and 12+ agents for per-position, per-season, all-in
+ * ranges. Values below are range midpoints. This is a PRACTITIONER SURVEY, not an
+ * audited figure; no audited figure exists anywhere (see WHAT IS NOT KNOWABLE).
  *
- * SHAPE is how value steps up across tiers, and how position groups compare. This
- * is the estimated part. Two sources inform it here:
- *   - positional weight, from measured PFF WAA headroom (see POSITION_WEIGHT)
- *   - tier multipliers, from the replacement-relative logic below
+ * It survives an independent top-down check: 22 starters at these rates plus the QB
+ * premium comes to roughly $15.7M, which against a reported $22.5M average Power 4
+ * all-in roster cost leaves about $6.8M for ~83 non-starters, or ~$82K each —
+ * consistent with ESPN's own "plenty competing for a starting job making $200,000
+ * or less". Two independent methods converging is the strongest validation available.
  *
- * WHY THE SPLIT MATTERS
- * It isolates what is known from what is modeled. Right now the user has told us to
- * estimate everything, so the whole dollar layer is modeled and the UI must say so.
- * But when a real budget arrives, only `scale` changes — the outcome model, the
- * tier shape and every calibration stay untouched.
+ * A second source agrees on the shape: a position chart via FootballScoop
+ * (12 Jun 2026) normalizes to within +/-0.2 of these ratios for eight of twelve
+ * positions. The QB premium of ~3x a non-QB starter is confirmed by both and is the
+ * single most robust relationship in this data.
  *
- * REPLACEMENT LEVEL, NOT ZERO
- * The old mapping set Bust = $0. That understates a miss: spending $400k on a bust
- * yields no production AND consumes $400k that had alternative uses AND burns a
- * roster spot. Value is therefore measured against REPLACEMENT — the player you
- * would otherwise have had — which makes a miss correctly negative rather than
- * merely neutral.
+ * WHAT WAS DELIBERATELY NOT USED
+ *  - On3 valuations before July 2026 are MODEL OUTPUT, not money — an algorithm
+ *    blending social following and performance. Feeding them in would plant a second
+ *    unlabelled modelling artifact beside the percentile-bucket problem this project
+ *    already exists to remove.
+ *  - Opendorse's positional revenue-share percentages are real payments but published
+ *    only as group shares. Converting to per-player needs a players-per-position
+ *    divisor nobody publishes; doing so put RB above WR and OL below DB, contradicting
+ *    both dollar sources. Directional evidence only.
+ *  - Headline transfer figures are usually MULTI-YEAR TOTALS. Mensah's reported "$8M"
+ *    is $4M/yr; Ojo's "$5.1M" is ~$775K/yr. This model values a SEASON, so ingesting
+ *    headline numbers raw would overstate by 2-4x.
+ *  - Several widely-circulating recruit-pricing tables are AI-generated SEO content
+ *    with no attribution (one admits in its footer to being "researched autonomously
+ *    by The Machine"). Excluded.
  */
 
 import type { PositionGroup } from '../ingest/types.ts';
 import { ORDERED_OUTCOMES, type OrderedOutcome } from './ordinal.ts';
 
 /**
- * Relative value of a position group, normalized so the mean group is 1.0.
+ * Dollars for ONE SEASON from a player holding a starting job at that position,
+ * Power 4 average, 2026, all-in (revenue share plus third-party NIL).
  *
- * Derived from measured WAA headroom — the maximum wins-above-average observed at
- * each position across 104,478 PFF player-seasons, 2015-2025. A quarterback tops
- * out near 2.4 and a tackle near 0.5, so a great quarterback swings roughly five
- * times the wins of a great tackle. That spread is real, it is measured, and the
- * legacy mapping did not express it at all: it had WR at $400k and TE at $300k,
- * a 1.33x range across the entire roster.
+ * ESPN range midpoints, mapped onto our nine groups. Where a group spans several
+ * ESPN positions it is weighted by how many of each actually start:
+ *   OL  = (2 x OT $900K + 3 x interior $600K) / 5
+ *   DL  = (2 x EDGE $850K + 2 x DT $750K) / 4
+ *   DB  = (2 x CB $650K + 2 x S $600K) / 4
  *
- * This is the most defensible part of the shape estimate because it comes from
- * observed win contribution rather than from market anecdote.
+ * QB at $2M is ~3x the non-QB starter mean. The predecessor's value_mapping.json
+ * had no QB entry at all, so the single largest price in the sport was unrepresented.
  */
-export const POSITION_WEIGHT: Record<PositionGroup, number> = {
-  QB: 3.2,
-  RB: 0.6,
-  WR: 1.1,
-  TE: 0.7,
-  OL: 1.0,
-  DL: 1.2,
-  LB: 0.8,
-  DB: 1.1,
-  // Specialists are unlabeled by the model, so this is never exercised today.
-  ST: 0.3,
+export const POSITION_STARTER_VALUE: Record<PositionGroup, number> = {
+  QB: 2_000_000,
+  OL: 720_000,
+  WR: 700_000,
+  DL: 800_000,
+  DB: 625_000,
+  RB: 550_000,
+  LB: 500_000,
+  TE: 450_000,
+  // Specialists are never labelled by the model, so this is not exercised today.
+  ST: 125_000,
 };
 
 /**
- * Value by tier, as a multiple of one "starter-season", measured against
- * replacement level.
+ * Value of each outcome tier as a multiple of a starter season.
  *
- * Bust is NEGATIVE, not zero — see the module note. The magnitude is the roster
- * spot plus the opportunity cost of the money, expressed relative to a starter's
- * value; the offer amount itself is subtracted separately in the EV calculation,
- * so this figure captures only the non-cash cost of the miss.
+ * REVISED against ESPN's within-position backup / starter / elite breakdown.
+ * The previous ratios came from the PDR §3.2.1 defaults (0.25 / 1.00 / 3.00) and the
+ * market disagrees in both directions:
  *
- * Impact is set at 3x a starter rather than something larger because the tier is
- * defined as All-Conference caliber, not generational. The gap between a starter
- * and an All-Conference player is real but not an order of magnitude.
+ *   DEPTH was far too low. The PDR implies a backup is worth a quarter of a starter;
+ *   reported figures put a rostered Power 4 backup at 0.6-0.7x (TE backup $250-400K
+ *   against a $500-600K starter; a No.3 receiver $200-600K against a No.2 at
+ *   $500-600K). This was the larger error, and it biased expected value DOWNWARD for
+ *   the most common non-bust outcome.
  *
- * ESTIMATED. No transaction data stands behind these ratios.
+ *   IMPACT was somewhat too high. 3.0x overstates it; reported elite-tier pricing
+ *   sits nearer 2.0x ("proven playmaker" receivers at $1M+ against $700K starters).
+ *   True outliers reach 8-10x, but that is a long tail, not a tier.
+ *
+ * BUST stays negative and stays mine. The PDR sets it to zero; that understates a
+ * miss, which costs the roster spot and the alternative use of the money on top of
+ * producing nothing. No market source prices a bust, so -0.15 is reasoning, not data.
  */
 export const TIER_MULTIPLIER: Record<OrderedOutcome, number> = {
   Bust: -0.15,
-  'Depth / Rotation': 0.25,
+  'Depth / Rotation': 0.65,
   Starter: 1.0,
-  'Impact Player': 3.0,
+  'Impact Player': 2.0,
+};
+
+/**
+ * Program-tier discount on the Power 4 average.
+ *
+ * The ESPN figures are a Power 4 mean skewed by the SEC and Big Ten. ESPN puts
+ * ACC/Big 12 quarterbacks at $1-2M against $2-3M in the SEC/Big Ten — roughly a
+ * 0.6x conference discount.
+ *
+ * Stanford is likely BELOW even the ACC average: it entered the conference on a 30%
+ * partial television revenue share, rising to 70% only in year eight, so its capacity
+ * is materially lower than conference peers. Default is set to the ACC figure rather
+ * than something Stanford-specific because no public number exists for a private
+ * school — this is the value most in need of replacement with a real internal budget.
+ */
+export const PROGRAM_TIER: Record<string, number> = {
+  'sec-bigten': 1.0,
+  acc: 0.6,
+  big12: 0.6,
+  g5: 0.15,
 };
 
 export interface ValueConfig {
-  /**
-   * Dollars a starter-season is worth at a mean-value position. The single number
-   * that sets the scale for everything else. Default is a placeholder in the
-   * region of reported Power 4 starter compensation and MUST be replaced with the
-   * program's own allocation before any output is acted on.
-   */
-  starterSeasonValue: number;
-  /** Optional per-position override of POSITION_WEIGHT. */
-  positionWeight?: Partial<Record<PositionGroup, number>>;
-  /** Optional per-tier override of TIER_MULTIPLIER. */
+  /** Per-position starter-season dollars. Defaults to POSITION_STARTER_VALUE. */
+  positionValue?: Partial<Record<PositionGroup, number>>;
+  /** Tier multipliers. Defaults to TIER_MULTIPLIER. */
   tierMultiplier?: Partial<Record<OrderedOutcome, number>>;
+  /** Program-tier discount on the Power 4 average. */
+  programTier?: number;
 }
 
 export const DEFAULT_VALUE_CONFIG: ValueConfig = {
-  starterSeasonValue: 350_000,
+  programTier: PROGRAM_TIER['acc'] ?? 0.6,
 };
+
+/** What one starter-season is worth at this position, after the program discount. */
+export function starterSeasonValue(
+  position: PositionGroup,
+  config: ValueConfig = DEFAULT_VALUE_CONFIG,
+): number {
+  const base = config.positionValue?.[position] ?? POSITION_STARTER_VALUE[position];
+  return base * (config.programTier ?? 1);
+}
 
 /** Dollar value of one season at a given outcome and position. */
 export function seasonValue(
@@ -110,9 +150,8 @@ export function seasonValue(
   position: PositionGroup,
   config: ValueConfig = DEFAULT_VALUE_CONFIG,
 ): number {
-  const weight = config.positionWeight?.[position] ?? POSITION_WEIGHT[position];
   const multiplier = config.tierMultiplier?.[outcome] ?? TIER_MULTIPLIER[outcome];
-  return config.starterSeasonValue * weight * multiplier;
+  return starterSeasonValue(position, config) * multiplier;
 }
 
 /** The four tier values for a position, in outcome order. */
@@ -124,13 +163,12 @@ export function valueVector(
 }
 
 /**
- * Replacement-level value for a position — what the next-best available player
- * would have produced.
+ * Replacement-level value — what the next-best available player would produce.
  *
- * Set at the Depth/Rotation tier: if you miss on a recruit, what you actually get
- * is not nothing, it is a rotational player from elsewhere on the roster or the
- * portal. Comparing against this rather than against zero is what makes the tool
- * answer "is this player worth it" rather than "is this player good".
+ * Set at the Depth/Rotation tier: missing on a recruit does not leave you with
+ * nothing, it leaves you with a rotational player from the roster or the portal.
+ * Comparing against this rather than against zero is what makes the tool answer
+ * "is this player worth it" instead of "is this player good".
  */
 export function replacementValue(
   position: PositionGroup,
@@ -138,3 +176,29 @@ export function replacementValue(
 ): number {
   return seasonValue('Depth / Rotation', position, config);
 }
+
+/**
+ * WHAT IS NOT KNOWABLE, stated so the UI can say it.
+ *
+ * There is no public per-player compensation dataset, and the door is closing rather
+ * than opening: FOIA requests to a dozen-plus schools produced aggregate totals from
+ * two, and North Carolina, Wisconsin, Colorado and South Carolina have passed or
+ * proposed statutes exempting athlete payments from public records. Stanford is
+ * private and outside records law entirely. The College Sports Commission publishes
+ * aggregates only. Every figure above traces to an anonymous practitioner survey,
+ * an agent disclosure, or vendor aggregation — none is audited.
+ *
+ * Treat the dollar layer as carrying roughly +/-30% error, and note the market rose
+ * about 10x between 2024 and 2026: outcomes are measured on 2015-2025 careers, but
+ * priced at 2026 rates. That is correct for pricing a NEW offer and wrong for
+ * valuing a past one.
+ */
+export const VALUE_PROVENANCE = {
+  scaleSource: 'ESPN position survey, Aug 2026 (12+ GMs, 12+ agents), range midpoints',
+  scaleConfidence: 'moderate — two independent methods converge; nothing audited',
+  tierSource: 'ESPN within-position backup/starter/elite breakdown, Aug 2026',
+  bustSource: 'not market-derived; reasoning about roster-spot opportunity cost',
+  programTierSource: 'ESPN ACC/Big12 vs SEC/BigTen QB ranges; ~0.6x',
+  errorBars: '+/-30%',
+  notKnowable: 'per-player compensation; Stanford-specific allocation; a star-rating multiplier',
+} as const;

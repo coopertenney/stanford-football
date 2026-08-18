@@ -77,7 +77,7 @@ function decodeCohort(base64: string): Cohort {
 
   // Names: one UTF-8 blob split on the single-space separator written by the encoder.
   const blob = new TextDecoder().decode(columns['nameBlob'] as Uint8Array);
-  const names = blob.split(' ');
+  const names = blob.split('\u0000');
 
   return {
     count: header.count,
