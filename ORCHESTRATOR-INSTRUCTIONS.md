@@ -17,7 +17,17 @@
 *Corrections to this file, verified against the repo on the date given. Per §7, append here the
 moment you learn something in here is wrong; do not fix silently.*
 
-- **2026-08-15 — this file is new; nothing in it has been proven by a real dispatch yet.** Treat
+- **2026-08-15 — first real dispatch happened** (read-only audit of `src/ingest/`). Two lessons,
+  both now folded into §2: orienting by hand cost ~8 tool round-trips and two gate runs, so step 1
+  is now `./scripts/orient.sh`; and **the returned audit's headline number was a tautology that
+  survived because it looked like the pinned baseline metric.** It reported ingest coverage as
+  "96.7% of recruits" against a pinned 42.2% — but 96.7% is the share of recruits emitted *a row*,
+  which is ~100% by construction: the pipeline emits a row per recruit-season regardless of
+  participation. The comparable number had to be re-derived by hand (78.7% ever-rostered, in the
+  baseline's WR/TE/RB 2018–2024 universe). **§6 rule 5 is what catches this — ask what ELSE
+  produces the number.** Check a returned metric's *denominator* against the baseline's, not only
+  its value.
+- **2026-08-15 — this file is new; little else in it has been proven by a real dispatch.** Treat
   every claim about *how the loop behaves in practice* as untested. The claims about the repo (file
   map, gate behaviour, traps in §4) were each verified by running something on 2026-08-15; the
   claims about orchestration are inherited method.
@@ -62,18 +72,38 @@ Run this cycle for every unit of work. Do not skip step 1 or step 5.
 6. RECORD     update the errata / state docs with anything newly learned
 ```
 
-### Step 1 in practice
+### Step 1 in practice — one command
 
 ```bash
-git fetch origin || exit 1                      # a silenced fetch is an unobserved fetch
-python3 scripts/board.py list                   # who is live, what files they hold
-git log --oneline origin/main -15               # what landed while you weren't looking
-python3 scripts/check.py                        # the gate's current reading, before you change anything
+./scripts/orient.sh
 ```
+
+That is the whole of step 1. It fetches, prints local vs. `origin/main` and the unmerged count,
+shows **uncommitted work** (the board cannot — posting is opt-in, and the first thing this repo's
+first real orient found was an undeclared edit sitting in `src/ingest/join.ts`), lists the board,
+runs the gate **once** and prints its tally, and echoes §7 of `ORCHESTRATOR-STATE.md`. Read-only
+throughout.
 
 **Take the gate's reading BEFORE dispatching, not only after.** Its `KNOWN-BAD` count is the
 baseline you will compare against; without it you cannot tell an agent's regression from something
-that was already true.
+that was already true. `orient.sh` prints the tally line only — run
+`.venv/bin/python scripts/check.py` for the detail when something moved.
+
+### Session-start read order — do NOT read this file end to end first
+
+Orienting cost 8 tool round-trips and two gate runs the first time it was done, mostly on reading
+that could have waited. At session start read exactly:
+
+1. **This file's ERRATA block** (above) — corrections first, always.
+2. **`ORCHESTRATOR-STATE.md` §2, §3, §4** — live lanes, the gate baseline, what nothing covers.
+3. **`./scripts/orient.sh` output.**
+
+Then pull in the rest **when the loop reaches it**, not before: §3 (the file map) when you scope a
+unit, §4 (the trap list) when you write a prompt, §5–§6 when an agent reports back. `CLAUDE.md`
+loads itself into every session already — do not re-read it to orient.
+
+Skip these; each was tried and wasted a call: `find` for the board (it is `scripts/board.py`),
+`ls` of the repo root (the map is §3), and any second `check.py` run in the same cycle.
 
 ## 2a. Passive watch — not the same as the loop above
 

@@ -96,6 +96,13 @@ reports them as `KNOWN-BAD` and goes **red** if any moves. Dated measurements: `
 | Survivorship | **42.2%** of recruits covered | non-participants are *missing*, not labeled Bust. The missing **57.8%** are the real busts, so "Bust" means "bottom quartile of players who already made the field" |
 | No P4 scoping | **270** teams, **48.6%** P4/P5 | PDR §3.1.4 asks for ACC / Power 4; Sun Belt, MAC etc. distort the ranks. Stanford: 67 rows |
 
+🔴 **Fifth distortion, found 2026-08-15, not pinned by the gate: the 0.4 usage weight is dead.**
+`gather_rb_data.py` reads a `Usage Overall` column that its stats pivot never contains and falls
+back to `0` — measured 0 for **all 2,844 RB and all 5,070 WR/TE rows**, making `usage_pct` a
+constant. So `impact_score = 0.4·constant + 0.6·production_pct`, and **every label in the shipped
+7,914 rows is pure raw-production rank.** The usage half of the outcome definition has never been
+active. Detail: `ORCHESTRATOR-STATE.md` §4b.
+
 ⚠️ **Two rates, different denominators — don't conflate.** **89%** = share of *stat-line players*
 matched to a recruit profile. **42%** = share of *recruits* appearing at all. Both correct.
 
@@ -121,11 +128,14 @@ Line refs and the PDR citations: `DECISIONS.md` (2026-08-12).
 ## State vs. the PDR
 Phase 1 ships and satisfies §4.1. Phase 2 is about half built. Full gap list: `DECISIONS.md`
 (2026-08-12).
-- **Biggest Phase 1 gap is not position count — it's "Player Source."** HS vs. transfer portal
-  isn't captured at all (the pipeline pulls only `classification="HighSchool"`), and it's named
-  in §3.1.2, in the §4.1 criteria, *and* it is core use case #2 (comparing two portal targets).
-- Position coverage is WR/TE/RB — 3 of the PDR's 9 groups. 7 recruiting classes where §3.1.4
-  asks for 10.
+- **"Player Source" is missing from the shipped model, but no longer from the pipeline** (corrected
+  2026-08-15 — this file previously said it "isn't captured at all", true only of the Python path).
+  `src/ingest/` has a `PlayerSource` type, a portal cohort builder, and a `source` field on every
+  row; its artifact holds **19,330 Portal rows**. The gap is now *wiring*, not capture. Named in
+  §3.1.2, in the §4.1 criteria, and it is core use case #2 (comparing two portal targets).
+- **Position/class coverage: WR/TE/RB and 7 classes in the shipped model; all 9 groups and 10
+  classes (2015–2024) in `src/ingest/`'s artifact** — same correction, same date. §3.1.4 asks for
+  10 classes, so the ingest already meets it and the model does not.
 - **Phase 2 missing:** Upside Probability, Outcome Variance, Monte Carlo (§3.2.3), side-by-side
   Comparison Mode (§3.2.4).
 - **Reproducibility (§4.1 "from a clean clone"): mostly met** — `requirements.txt`, `README.md`,
@@ -151,6 +161,19 @@ Phase 1 ships and satisfies §4.1. Phase 2 is about half built. Full gap list: `
 `data/player_seasons.json`. `npm run typecheck` for tsc. Node ≥22, `tsx`, no runtime deps.
 
 This is the vehicle for fix-order items 1–2 — it re-does the pull/merge `gather_rb_data.py` got
-wrong. **Whether it currently fixes the merge direction or the outcome labeling is UNVERIFIED**;
-nobody has read those 5 files against the distortions above. Do that before assuming the rewrite
-has solved them.
+wrong. **Audited 2026-08-15; no longer unverified.** It is a **stage-1, unlabeled** pipeline and
+**nothing consumes its output** — `app.py` still reads `yearly_player_outcomes.csv`. The merge
+direction **is** fixed (recruit-first; non-participants retained as `rostered:false`, 96,221 of
+196,679 rows). Labeling (items 1/B) is **out of its scope** — no labeler exists yet, though every
+input one needs is present. P4 scoping is **not** applied. Detail, with what was verified directly
+vs. taken from the audit: `ORCHESTRATOR-STATE.md` §4a. ⚠️ **Do not quote the "96.7% coverage"
+figure** — it is ~100% by construction and not comparable to the pinned 42.2%; the honest
+like-for-like is 78.7% ever-rostered.
+
+✅ **Resolved 2026-08-15: `src/ingest/cfbd.ts` carried that retracted "already effectively
+committed … not to rotate it" claim as a code comment; it has been deleted** (verified — `apiKey()`
+now has no comment block, and no copy survives outside the docs that describe the incident).
+**How it got there is the lesson: it was copied out of this file when this file still said it.** A
+prose correction does not propagate to files derived from the prose. **When you retract a claim
+here, grep the repo for it** — the false statement outlived its source by weeks and sat in the one
+place nobody thought to scrub, because the original scrub hunted key *literals*, not sentences.

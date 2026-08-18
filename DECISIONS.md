@@ -14,6 +14,98 @@ load-bearing.
 
 ---
 
+## 2026-08-15 — `src/ingest/` audited; four doc claims falsified; a fifth distortion found
+
+First orchestrator cycle. A read-only agent audited `src/ingest/`'s 5 files against the four pinned
+distortions; the orchestrator then re-ran the load-bearing checks itself. **Verified** below means
+the orchestrator ran the command; **relayed** means it rests on the audit alone.
+
+**Gate reading, before and after: 12 PASS · 4 KNOWN-BAD · 1 CANNOT-SEE · 0 FAIL** (verified, twice).
+Nothing moved — no code changed this cycle. `ORCHESTRATOR-STATE.md` had said 11 PASS; `check.py` is
+untouched since (landed `b10a154`, that doc `96bed4b`, `scripts/` clean), so it was a miscount.
+
+**What `src/ingest/` is** (verified): a stage-1, **unlabeled** pipeline, complete and **unwired** —
+`app.py` still reads `yearly_player_outcomes.csv`. Artifact `data/player_seasons.json`: 83.5 MB,
+gitignored, 196,679 rows, 48,797 distinct recruits (40,236 HighSchool + 8,561 Portal), 9 position
+groups, classes 2015–2024, 24 fields, **no label field**. Merge direction is recruit-first and
+non-participants are retained — 96,221 never-rostered rows kept. P4 scoping stamped but never
+filtered on: 288 teams, 47.1% P4 (relayed) against a pinned 270 / 48.6%.
+
+🔴 **The audit's headline number was a tautology.** It reported "96.7% coverage" against the pinned
+42.2%. 96.7% is the share of HS recruits *emitted a row* — ~100% by construction, since the
+pipeline emits a row per recruit-season regardless of participation. Re-derived by hand in the
+baseline's own universe (WR/TE/RB, classes 2018–2024): **10,150 recruits, 7,984 ever rostered =
+78.7%** (verified). The lesson is now ERRATA in `ORCHESTRATOR-INSTRUCTIONS.md`: check a returned
+metric's **denominator** against the baseline's, not only its value.
+
+**Four documented claims falsified** (all verified):
+1. `ORCHESTRATOR-STATE.md` §6 — *"Item 1 needs a data source the pipeline does not touch"*. It does
+   touch it: `join.ts` pulls `/roster` 2015–2025 plus `/player/usage`, `/draft/picks` and box
+   scores. **Item 1 is unblocked on data**; only the "what is a Starter" product call remains.
+2. `CLAUDE.md` — *"HS vs. transfer portal isn't captured at all"*. True of the Python path only;
+   the TS artifact holds 19,330 Portal rows.
+3. `CLAUDE.md` — *"WR/TE/RB — 3 of the PDR's 9 groups. 7 recruiting classes"*. True of the shipped
+   model; the ingest has all 9 groups and 10 classes.
+4. `ORCHESTRATOR-STATE.md` §6 — item 2 *"sequence after 1"*. Its structural half is already done.
+
+🔴 **The retracted key claim had propagated into code, and is now deleted.** `src/ingest/cfbd.ts`
+carried it verbatim above `apiKey()`, including *"not to rotate it"* — the same false claim
+retracted elsewhere in this file on this date, the one `CLAUDE.md`'s process block cites as its
+canonical example. Routed to the session that owns the file rather than dispatched; it deleted the
+whole block. **Verified after the fact** (not taken on report): `apiKey()` has no comment, and a
+repo-wide grep for *"effectively committed" / "not to rotate"* returns only the documents recording
+the incident.
+
+**The provenance is the lesson, and it is new.** That session wrote the comment by copying the claim
+out of `CLAUDE.md` while `CLAUDE.md` still asserted it — it treated the notes as verified, which is
+what notes are for. So the retraction fixed the source and left the derivative standing, in the one
+place the original scrub could not have caught it, because that scrub hunted key *literals* rather
+than sentences about the key. **A prose correction does not propagate. Retracting a claim means
+grepping the repo for it.** Rule added to `CLAUDE.md`.
+
+**Fifth distortion, not pinned by the gate — the 0.4 usage weight is dead** (verified):
+`gather_rb_data.py` looks for a `Usage Overall` column in a pivot of
+`/stats/player/season?category=rushing`, which never contains it, and falls back to `0`. Measured:
+`Usage Overall` has `nunique == 1`, value 0, across **all 2,844 RB and all 5,070 WR/TE rows**;
+`usage_pct` is a constant ≈0.5008 from tied ranks (std 0.0003 RB / 0.0001 WR-TE). So
+`impact_score = 0.4·constant + 0.6·production_pct` — **every outcome label in the shipped 7,914 rows
+is pure raw-production rank.** Independent of the four pinned distortions and invisible to the gate.
+The TS path sidesteps it by pulling the real `/player/usage` endpoint.
+
+**The uncommitted `join.ts` fix is correct** (mechanism verified by reading; measurements relayed):
+`game.teams` carries both teams, so counting every side double-counted games played — a
+distribution peaking at 22 for an ~11-game season. Filtering to the pulled team's own side fixes
+it; artifact `max(gamesPlayed) = 16` is consistent with post-fix (verified). It fixes nothing
+shipping, since nothing reads the artifact, but it is a **prerequisite for item 1**: `gamesPlayed`
+is the natural absolute threshold for "Starter", and 2× inflation would clear any plausible cut.
+
+**A live lane was running undeclared the whole time.** The board read empty and `ORCHESTRATOR-
+STATE.md` said no lanes were live; in fact a peer session (`setup`) had authored the entire TS
+ingest that session and held all 5 files plus `package.json` and `tsconfig.json`. It surfaced only
+because Cooper mentioned the session existed and it was asked directly — `ListAgents` shows session
+*names*, never working directories, and two of the names on that list belong to a different repo.
+It has since posted lane `ingest-pipeline`. **Board-empty is not evidence; `git status` is.**
+
+**`gamesPlayed` corruption, corrected figure — record 54,870, not 33,806** (both reproduced). The
+owning session first reported 33,806, a real count of a narrower thing at an earlier dataset
+version: 10 classes, predicate `rostered && !power4 && gamesPlayed === 0`, out of 53,135 rostered
+non-P4 rows. The orchestrator counted 54,870 on the current file and asked for the denominator
+rather than recording either. The reconciliation found the larger fact: the other **19,329**
+rostered non-P4 rows were also corrupt, carrying **nonzero but radically incomplete** counts —
+games against P4 opponents only, the same double-count bug seen from the other side. So the
+population splits into 33,806 phantom zeros plus 19,329 partials, and **33,806 alone would have
+described a third of the corruption as the whole of it.** All are now `null` rather than `0`, which
+is the fix that matters: `0` reads as "did not play" but meant "never fetched."
+
+**The artifact was rebuilt twice in one afternoon** — 83.5 MB / 196,679 rows / 10 classes at 11:22,
+then 94 MB / 200,685 rows / 11 classes at 11:50 (both verified). The audit's field count went stale
+within the hour. **Timestamp any count taken from `data/player_seasons.json`.**
+
+**Tooling:** `scripts/orient.sh` added. Orienting by hand cost 8 tool round-trips and two gate runs;
+step 1 of the loop is now one read-only command.
+
+**No decisions taken.** Everything above is measurement. Priority remains Cooper's.
+
 ## 2026-08-15 — under version control, key scrubbed, gate built
 
 **Verified.** `git init` + first commit, pushed private to
