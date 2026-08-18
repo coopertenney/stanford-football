@@ -232,6 +232,19 @@ export interface LabelInputs {
   /** Career-level: this athlete was drafted. Used as a Bust veto, never as a label. */
   draftPick: boolean;
   /**
+   * The recruit committed to an FBS school, so a roster appearance was reachable.
+   *
+   * This splits the unresolved pile. Censoring ALL unlinked recruits removed 52.7%
+   * of 2-star rows against 5.3% of 5-star rows, which biased the reported cohort
+   * measurably upward — mean stars 2.83 -> 2.97, P4 share 24.4% -> 32.3% — and did
+   * it worst exactly where a recruiter needs honesty. But the pile is not
+   * homogeneous: a recruit who committed to an FBS school and never appeared on any
+   * FBS roster is a MEASURED non-participant, while one with no committedTo at all
+   * (40.9% of the pile) or a non-FBS commitment (25.2%) is genuinely out of universe.
+   * Only the second group is unknowable.
+   */
+  committedFbs: boolean;
+  /**
    * True when this season lies OUTSIDE the athlete's college career — before they
    * first appeared on a roster, or after they last did.
    *
@@ -283,6 +296,7 @@ export function labelSeason(input: LabelInputs): LabelResult {
     draftPick,
     outsideCareer,
     nextSeasonObservable,
+    committedFbs,
   } = input;
 
   // Specialists first, before anything else. A K/P/LS who never made a roster is
@@ -302,10 +316,18 @@ export function labelSeason(input: LabelInputs): LabelResult {
   // Checked BEFORE the rostered test, because an unresolved recruit is trivially
   // "not rostered" and would otherwise be swept into Bust.
   if (linkTier == null) {
+    // Committed to an FBS school and never appeared on one: that IS the observation.
+    if (committedFbs) {
+      return {
+        outcome: 'Bust',
+        snapShare: null,
+        reason: 'committed to an FBS school, never appeared on any FBS roster',
+      };
+    }
     return {
       outcome: 'Unresolved',
       snapShare: null,
-      reason: 'recruit never resolved to an athlete — nothing observed',
+      reason: 'no FBS commitment on record — out of universe, not a measured outcome',
     };
   }
 

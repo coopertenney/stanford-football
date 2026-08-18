@@ -31,7 +31,13 @@
  */
 
 import type { PositionGroup } from '../ingest/types.ts';
-import { replacementValue, valueVector, type ValueConfig } from './value.ts';
+import {
+  replacementValue,
+  tierCv,
+  valueVector,
+  type ValueConfig,
+} from './value.ts';
+import { ORDERED_OUTCOMES } from './ordinal.ts';
 
 /** Probabilities for the four outcomes, for one eligibility year. */
 export type YearDistribution = number[];
@@ -234,6 +240,27 @@ function mulberry32(seed: number): () => number {
   };
 }
 
+/**
+ * Draw a lognormal value for a tier whose MEAN is `mean` and whose coefficient of
+ * variation is `cv`.
+ *
+ * Parameterised on the mean rather than the median so expected value is unchanged by
+ * adding spread — the simulation gains realistic dispersion without silently moving
+ * the headline number. Box-Muller for the normal draw, since the PRNG is uniform.
+ */
+function lognormalAboutMean(mean: number, cv: number, random: () => number): number {
+  if (cv <= 0 || mean === 0) return mean;
+  const sigma2 = Math.log(1 + cv * cv);
+  const sigma = Math.sqrt(sigma2);
+  // E[X] = exp(mu + sigma^2/2), so mu = ln(mean) - sigma^2/2 preserves the mean.
+  const mu = Math.log(Math.abs(mean)) - sigma2 / 2;
+  const u1 = Math.max(1e-12, random());
+  const u2 = random();
+  const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+  const draw = Math.exp(mu + sigma * z);
+  return mean < 0 ? -draw : draw;
+}
+
 /** Sample one outcome index from a distribution. */
 function sample(distribution: readonly number[], random: () => number): number {
   const draw = random();
@@ -281,7 +308,13 @@ export function monteCarlo(
     for (let year = 0; year < byYear.length; year++) {
       // Survival: leaving ends the career, so later years contribute nothing.
       if (random() > conditional[year]!) break;
-      total += values[sample(byYear[year]!, random)]!;
+      const tier = sample(byYear[year]!, random);
+      // Draw within the tier rather than taking its point value.
+      total += lognormalAboutMean(
+        values[tier]!,
+        tierCv(ORDERED_OUTCOMES[tier]!, valueConfig),
+        random,
+      );
     }
     totals[i] = total;
   }

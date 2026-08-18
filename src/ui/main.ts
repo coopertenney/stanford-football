@@ -144,7 +144,7 @@ function renderOne(target: string, evaluation: Evaluation, offer: number, positi
     ['Net value', dual(ev.netValue), 'EV minus total compensation'],
     ['ROI', Number.isFinite(ev.roi) ? `${ev.roi.toFixed(2)}x` : '—', 'EV / compensation (one definition)'],
     ['Value above replacement', dual(ev.valueAboveReplacement), 'vs the player you would otherwise have'],
-    ['One starter-season here', money(ss), `${position} starter, ACC-adjusted (ESPN 2026 survey)`],
+    ['One starter-season here', money(ss), `${position} starter at spend level ${(__BUNDLE__.value.spendLevel ?? 1).toFixed(2)} (ESPN 2026 survey)`],
     ['Upside P(Impact)', pct(ev.upsideProbability), 'Best year'],
     ['Downside P(Bust)', pct(ev.downsideProbability), 'Worst year'],
     ['Outcome std dev', money(ev.outcomeStdDev), 'Spread of total value'],
@@ -184,8 +184,28 @@ function run(): void {
   const offer = Number($<HTMLInputElement>('offer').value) || 0;
   const p = Number($<HTMLInputElement>('prefP').value) || 0.5;
   // Scale is the user's to set; the model never asserts a program's budget.
-  const spendLevel = Number($<HTMLInputElement>('spend').value) || 1;
-  __BUNDLE__.value = { ...__BUNDLE__.value, spendLevel };
+  // Every value assumption is a live control. These are the biggest drivers of the
+  // dollar output and the GM must be able to move them without editing code.
+  const num = (id: string, fallback: number): number => {
+    const v = Number($<HTMLInputElement>(id).value);
+    return Number.isFinite(v) ? v : fallback;
+  };
+  const spendLevel = num('spend', 1);
+  const cvScale = num('cvScale', 1);
+  const baseCv = { Bust: 0, 'Depth / Rotation': 0.35, Starter: 0.4, 'Impact Player': 0.6 };
+  __BUNDLE__.value = {
+    ...__BUNDLE__.value,
+    spendLevel,
+    tierMultiplier: {
+      Bust: num('tmBust', -0.15),
+      'Depth / Rotation': num('tmDepth', 0.55),
+      Starter: num('tmStarter', 1),
+      'Impact Player': num('tmImpact', 2),
+    },
+    tierCv: Object.fromEntries(
+      Object.entries(baseCv).map(([k, v]) => [k, v * cvScale]),
+    ),
+  };
   $('rOut').textContent = `r = ${riskOddsLabel(p)}`;
 
   const a = readProfile('a');

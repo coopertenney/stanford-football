@@ -57,18 +57,30 @@ footer{margin-top:34px;padding-top:16px;border-top:1px solid var(--grid);font-si
 <h1>Player Valuation</h1>
 <p class="sub">Enter a recruit profile to see the year-by-year distribution of what comparable players actually became, and what that is worth against a proposed offer.</p>
 
-<div class="warn"><b>Dollar figures carry roughly &plusmn;30% error.</b> Outcome probabilities are fitted to 11 recruiting classes and calibrated against held-out data. The prices they are multiplied by come from an ESPN survey of 12+ GMs and 12+ agents (Aug 2026), discounted 0.6&times; for ACC pricing &mdash; a practitioner survey, not an audited figure. No audited per-player compensation data exists publicly, and Stanford is private so its own allocation is not knowable. <b>Every figure is also shown in starter-seasons (SS)</b>, which carries no price assumption: 1.00&nbsp;SS means "worth one season from a starter at this position, whatever you pay one." Special teams is excluded &mdash; the data cannot support a label.</div>
+<div class="warn"><b>Dollar figures carry roughly &plusmn;30% error.</b> Outcome probabilities are fitted to 11 recruiting classes and calibrated against held-out data. The prices they are multiplied by come from an ESPN survey of 12+ GMs and 12+ agents (Aug 2026) at the Power&nbsp;4 average &mdash; a practitioner survey, not an audited figure &mdash; scaled by the spend level you set below. No audited per-player compensation data exists publicly. <b>Every figure is also shown in starter-seasons (SS)</b>, which carries no price assumption: 1.00&nbsp;SS means "worth one season from a starter at this position, whatever you pay one." Special teams is excluded &mdash; the data cannot support a label.</div>
 
 <fieldset><legend>Deal</legend>
 <div class="row">
 <label>Total compensation ($)<input id="offer" type="number" value="400000" step="25000" min="0"></label>
 <label>Preference probability <input id="prefP" type="number" value="0.5" step="0.05" min="0.05" max="0.95"></label>
-<label>Program spend level<input id="spend" type="number" value="1.0" step="0.05" min="0.05" max="1.5"></label>
 <label class="chk"><input id="compare" type="checkbox"> Compare two recruits</label>
 <span class="dim" id="rOut"></span>
 </div>
-<p class="cap"><b>Program spend level</b> is your budget as a share of the Power 4 average, and it scales every dollar figure. Reference points: 1.00 Power 4 average &middot; ~0.6 ACC/Big&nbsp;12 &middot; ~0.25 a program on a reduced conference distribution &middot; ~0.15 Group of 6. Set it to your own number &mdash; it is not inferred, and the default is the average the source survey was measured on.</p>
 <p class="cap">Preference probability answers one question: you are indifferent between $0 for certain and a deal that wins the offer amount or loses it — what win probability makes you indifferent? 0.5 means risk neutral, which is what the predecessor assumed. Above 0.5 is risk averse.</p>
+</fieldset>
+
+<fieldset><legend>Value assumptions &mdash; these drive every dollar figure</legend>
+<div class="grid">
+<label>Program spend level<input id="spend" type="number" value="1.0" step="0.05" min="0.05" max="1.5"></label>
+<label>Bust &times;<input id="tmBust" type="number" value="-0.15" step="0.05" min="-1" max="1"></label>
+<label>Depth &times;<input id="tmDepth" type="number" value="0.55" step="0.05" min="0" max="2"></label>
+<label>Starter &times;<input id="tmStarter" type="number" value="1.0" step="0.05" min="0" max="3"></label>
+<label>Impact &times;<input id="tmImpact" type="number" value="2.0" step="0.1" min="0" max="10"></label>
+<label>Within-tier spread<input id="cvScale" type="number" value="1.0" step="0.1" min="0" max="3"></label>
+</div>
+<p class="cap"><b>Spend level</b> is your budget as a share of the Power 4 average and scales every dollar. Reference: 1.00 Power&nbsp;4 average &middot; ~0.6 ACC/Big&nbsp;12 &middot; ~0.25 a reduced conference distribution &middot; ~0.15 Group of 6. Not inferred &mdash; set your own.</p>
+<p class="cap"><b>Tier multipliers</b> are each outcome's worth relative to one starter-season. Sources disagree most on Depth: an ESPN within-position read implies 0.58&ndash;0.65, Opendorse starter-vs-backup bands imply 0.29&ndash;0.31, the PDR said 0.25. Shipping 0.55. Impact sits at 2.0 against reported elite pricing; true outliers reach 8&ndash;10&times; but that is a tail, not a tier. Bust is negative because a miss costs the roster spot and the money's alternative use &mdash; no market source prices it, so that one is reasoning.</p>
+<p class="cap"><b>Within-tier spread</b> scales how much value varies <em>inside</em> a tier (1.0 = default). At 0 every starter is worth exactly the same and the p10&ndash;p90 range collapses to tier-mix alone.</p>
 </fieldset>
 
 <fieldset><legend>Recruit A</legend>

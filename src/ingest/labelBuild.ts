@@ -135,6 +135,12 @@ async function main(): Promise<void> {
     `estimated plays for ${teamPlays.size} team-seasons from ${pffAsRows.length} PFF rows`,
   );
 
+  // Schools that appear as an FBS roster team anywhere in the window. Used to tell
+  // "committed FBS and never played" (measurable) from "never had an FBS path".
+  const fbsSchools = new Set(
+    seasons.map((r) => r.team).filter((t): t is string => t != null),
+  );
+
   // --- per-player context needed by the redshirt rule ----------------------
   // Group by recruit so each season can see the next one, and detect the season a
   // player changed teams.
@@ -199,6 +205,9 @@ async function main(): Promise<void> {
         usageOverall: row.usageOverall,
         draftPick: row.draftPick,
         nextSeasonObservable: row.season < LAST_SEASON,
+        // committedTo is populated and names a school that fields an FBS roster in
+        // our data. Absent committedTo, a roster appearance was never reachable.
+        committedFbs: row.committedTo != null && fbsSchools.has(row.committedTo),
         outsideCareer:
           firstSeason != null &&
           lastSeason != null &&

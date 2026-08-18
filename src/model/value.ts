@@ -166,11 +166,38 @@ export const REFERENCE_SPEND_LEVEL: Record<string, number> = {
 /** Default to the Power 4 average — the basis the source figures were measured on. */
 export const DEFAULT_SPEND_LEVEL = 1.0;
 
+/**
+ * Within-tier spread, as a coefficient of variation (sd / mean).
+ *
+ * Every Starter was previously worth EXACTLY the same amount, so the only variation
+ * in a simulated career came from WHICH tier a player landed in. Real value inside a
+ * tier spans a wide, right-skewed band — the gap between a marginal starter and a
+ * very good one is large, and the gap between a good one and an outlier is larger
+ * still. Without this the p10/p90 range is understated and "probability below offer"
+ * is cruder than it looks.
+ *
+ * Modelled lognormal, which is the natural shape for pay and for value: bounded
+ * below, long right tail. Impact carries the widest spread because the tier's top
+ * end is unbounded — reported outlier deals run 8-10x a starter, well past the 2.0x
+ * the tier centre sits at.
+ *
+ * Bust is 0: the tier is defined by absence of production, so there is nothing to
+ * vary. Its value is the roster-spot cost, which does not fluctuate with performance.
+ */
+export const TIER_CV: Record<OrderedOutcome, number> = {
+  Bust: 0,
+  'Depth / Rotation': 0.35,
+  Starter: 0.40,
+  'Impact Player': 0.60,
+};
+
 export interface ValueConfig {
   /** Per-position starter-season dollars. Defaults to POSITION_STARTER_VALUE. */
   positionValue?: Partial<Record<PositionGroup, number>>;
   /** Tier multipliers. Defaults to TIER_MULTIPLIER. */
   tierMultiplier?: Partial<Record<OrderedOutcome, number>>;
+  /** Within-tier spread. Defaults to TIER_CV. Set all to 0 for point values. */
+  tierCv?: Partial<Record<OrderedOutcome, number>>;
   /**
    * This program's spending as a share of the Power 4 average. See
    * REFERENCE_SPEND_LEVEL for calibration points. Set by the user, not inferred.
@@ -240,6 +267,12 @@ export function replacementValue(
  * priced at 2026 rates. That is correct for pricing a NEW offer and wrong for
  * valuing a past one.
  */
+/** Coefficient of variation for a tier, after config overrides. */
+export const tierCv = (
+  outcome: OrderedOutcome,
+  config: ValueConfig = DEFAULT_VALUE_CONFIG,
+): number => config.tierCv?.[outcome] ?? TIER_CV[outcome];
+
 export const VALUE_PROVENANCE = {
   scaleSource: 'ESPN position survey, Aug 2026 (12+ GMs, 12+ agents), range midpoints',
   scaleConfidence: 'moderate — two independent methods converge; nothing audited',

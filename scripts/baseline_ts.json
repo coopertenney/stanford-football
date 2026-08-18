@@ -1,23 +1,23 @@
 {
   "rows": 191588,
-  "reported": 82150,
-  "bustPct": 53.7,
-  "depthPct": 27.1,
-  "starterPct": 16.69,
-  "impactPct": 2.52,
-  "bustSpreadPp": 35.98,
+  "reported": 105678,
+  "bustPct": 64,
+  "depthPct": 21.06,
+  "starterPct": 12.97,
+  "impactPct": 1.96,
+  "bustSpreadPp": 23.5,
   "bustByYear": [
-    72.53,
-    56.58,
-    45.72,
-    39.74,
-    36.55
+    77.95,
+    64.96,
+    57.21,
+    54.45,
+    57.36
   ],
   "starBustGradient": [
-    13.07,
-    34.64,
-    52.79,
-    62.72
+    17.74,
+    38.94,
+    59.42,
+    77.95
   ],
   "impactInReferenceSeason": 269,
   "duplicateAthleteSeasons": 0
